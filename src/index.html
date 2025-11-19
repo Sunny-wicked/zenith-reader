@@ -30,6 +30,24 @@
         body.forest {
             --bg-main: #1a2f23; --bg-panel: rgba(25, 45, 35, 0.95); --text-main: #d1e7dd; --accent: #2ecc71; --border: #2c4a3b;
         }
+        
+        /* NEW: Romantic Theme */
+        body.romantic {
+            --bg-main: #ffe5ec; /* Soft Pink */
+            --bg-panel: rgba(255, 230, 235, 0.95); /* Lighter Transparent Pink */
+            --text-main: #880025; /* Dark Maroon Text */
+            --accent: #ff006e; /* Vibrant Pink Accent */
+            --border: #fbc4d4; /* Soft Pink Border */
+        }
+        body.romantic .nav-arrow {
+            /* Soft romantic glow on nav arrows */
+            box-shadow: 0 4px 15px rgba(255, 0, 110, 0.5); 
+        }
+        body.romantic .nav-arrow:hover {
+            /* Slightly more dramatic hover effect */
+            transform: translateY(-50%) scale(1.2) rotate(1deg);
+        }
+        /* END NEW THEME */
 
         body {
             background-color: var(--bg-main); color: var(--text-main);
@@ -119,7 +137,9 @@
             sepia: { bg: '#f4ecd8', color: '#5b4636' },
             dark: { bg: '#1e1e1e', color: '#dfe6e9' },
             midnight: { bg: '#0f172a', color: '#94a3b8' },
-            forest: { bg: '#1a2f23', color: '#d1e7dd' }
+            forest: { bg: '#1a2f23', color: '#d1e7dd' },
+            // NEW: Romantic Theme object for Epub.js
+            romantic: { bg: '#ffe5ec', color: '#880025' }
         };
 
         function applyTheme(themeName) {
@@ -191,7 +211,7 @@
                 document.getElementById('book-title').textContent = meta.title || 'EPUB';
                 loadReadingData('epub-' + (meta.title ? meta.title.replace(/\s/g, '') : hash));
                 
-                // --- EPUB ANIMATION CHANGE ---
+                // --- EPUB ANIMATION CONFIGURATION ---
                 const viewerOptions = { 
                     width: "100%", 
                     height: "100%", 
@@ -202,7 +222,7 @@
                 };
 
                 currentRendition = currentBook.renderTo('epub-viewer-area', viewerOptions);
-                // --- END EPUB ANIMATION CHANGE ---
+                // --- END EPUB ANIMATION CONFIGURATION ---
 
                 applyTheme(currentTheme);
                 currentRendition.display(savedReadingData.lastPosition || undefined);
@@ -224,7 +244,6 @@
                 });
                 
                 // --- FIX FOR EPUB KEYBOARD NAV ---
-                // We register a listener INSIDE the book iframe
                 currentRendition.hooks.content.register((contents) => {
                     contents.document.addEventListener('keydown', (e) => {
                         if (e.key === "ArrowLeft") document.getElementById('prev-btn').click();
@@ -245,9 +264,9 @@
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                 pdfDoc = await pdfjsLib.getDocument({ data: atob(data) }).promise;
                 
-                // --- PDF TITLE EXTRACTION (From previous step) ---
+                // --- PDF TITLE EXTRACTION ---
                 const metadata = await pdfDoc.getMetadata();
-                const filePath = atob(hash); // Decode the file path passed as 'hash'
+                const filePath = atob(hash); 
                 
                 let pdfTitle;
                 if (metadata && metadata.info && metadata.info.Title) {
@@ -257,7 +276,6 @@
                 }
 
                 document.getElementById('book-title').textContent = pdfTitle; 
-                // --- END PDF TITLE EXTRACTION ---
 
                 loadReadingData('pdf-' + hash);
                 pdfPageNum = savedReadingData.lastPosition || 1;
@@ -275,7 +293,7 @@
             if (!pdfDoc) return;
             const area = document.getElementById('pdf-viewer-area');
             
-            // --- 1. FADE OUT CURRENT PAGES (Start Animation) ---
+            // --- 1. FADE OUT CURRENT PAGES (Start Crossfade) ---
             area.style.opacity = '0';
             
             // Wait for the fade-out to finish (300ms, matching the CSS transition time)
@@ -296,7 +314,7 @@
             if(pdfPageNum <= pdfDoc.numPages) await renderPage(pdfPageNum);
             if(pdfPageNum + 1 <= pdfDoc.numPages) await renderPage(pdfPageNum + 1);
 
-            // --- 3. FADE NEW PAGES IN (Finish Animation) ---
+            // --- 3. FADE NEW PAGES IN (Finish Crossfade) ---
             area.style.opacity = '1';
 
             // --- 4. UPDATE STATE ---
@@ -327,10 +345,10 @@
             document.getElementById('next-btn').onclick = () => {
                 if(currentReaderType === 'epub') currentRendition.next();
                 else { if(pdfPageNum < pdfDoc.numPages) { pdfPageNum += 2; renderPdfSpread(); } }
+                
             };
 
             // --- KEYBOARD SUPPORT (GLOBAL) ---
-            // This handles keys when clicking outside the book (e.g. on the sidebar)
             document.addEventListener('keydown', (e) => {
                 if (e.key === "ArrowLeft") {
                     document.getElementById('prev-btn').click();
@@ -377,6 +395,7 @@
                 <div class="menu-item" onclick="applyTheme('dark')"><div class="theme-circle" style="background:#1e1e1e"></div> Night</div>
                 <div class="menu-item" onclick="applyTheme('midnight')"><div class="theme-circle" style="background:#0f172a"></div> Midnight</div>
                 <div class="menu-item" onclick="applyTheme('forest')"><div class="theme-circle" style="background:#1a2f23"></div> Forest</div>
+                <div class="menu-item" onclick="applyTheme('romantic')"><div class="theme-circle" style="background:#ffe5ec; border: 1px solid #ff006e;"></div> Romantic</div>
             </div>
 
             <div id="bookmark-menu" class="dropdown-menu">

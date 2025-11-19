@@ -4,8 +4,7 @@ const path = require('path');
 const fs = require('fs'); 
 
 // --- AUTO UPDATER CONFIGURATION ---
-// This prevents the updater from failing because you don't have a paid certificate.
-autoUpdater.autoDownload = false; 
+autoUpdater.autoDownload = false; // We ask the user before downloading
 autoUpdater.autoInstallOnAppQuit = true;
 
 function createWindow() {
