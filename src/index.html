@@ -30,22 +30,31 @@
         body.forest {
             --bg-main: #1a2f23; --bg-panel: rgba(25, 45, 35, 0.95); --text-main: #d1e7dd; --accent: #2ecc71; --border: #2c4a3b;
         }
-        
-        /* NEW: Romantic Theme */
         body.romantic {
-            --bg-main: #ffe5ec; /* Soft Pink */
-            --bg-panel: rgba(255, 230, 235, 0.95); /* Lighter Transparent Pink */
-            --text-main: #880025; /* Dark Maroon Text */
-            --accent: #ff006e; /* Vibrant Pink Accent */
-            --border: #fbc4d4; /* Soft Pink Border */
+            --bg-main: #ffe5ec; 
+            --bg-panel: rgba(255, 230, 235, 0.95); 
+            --text-main: #880025; 
+            --accent: #ff006e; 
+            --border: #fbc4d4; 
         }
         body.romantic .nav-arrow {
-            /* Soft romantic glow on nav arrows */
             box-shadow: 0 4px 15px rgba(255, 0, 110, 0.5); 
         }
         body.romantic .nav-arrow:hover {
-            /* Slightly more dramatic hover effect */
             transform: translateY(-50%) scale(1.2) rotate(1deg);
+        }
+
+        /* NEW: Tech Theme */
+        body.tech {
+            --bg-main: #0A192F; /* Deep Navy Blue */
+            --bg-panel: rgba(17, 34, 51, 0.95); /* Transparent Darker Blue */
+            --text-main: #8892B0; /* Light Slate/Grey */
+            --accent: #64FFDA; /* Neon Cyan */
+            --border: #334155; /* Blueish-Grey Border */
+        }
+        body.tech .btn-primary {
+            /* Neon Glow Effect */
+            box-shadow: 0 0 10px var(--accent), 0 0 20px rgba(100, 255, 218, 0.5);
         }
         /* END NEW THEME */
 
@@ -61,10 +70,10 @@
         
         .btn-icon { padding: 8px; border-radius: 8px; cursor: pointer; color: var(--text-main); transition: 0.2s; }
         .btn-icon:hover { background-color: rgba(0,0,0,0.05); color: var(--accent); }
-        body.dark .btn-icon:hover, body.midnight .btn-icon:hover { background-color: rgba(255,255,255,0.1); }
+        body.dark .btn-icon:hover, body.midnight .btn-icon:hover, body.tech .btn-icon:hover { background-color: rgba(255,255,255,0.1); }
 
         .btn-primary {
-            background-color: var(--accent); color: white; padding: 0.5rem 1.2rem; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background-color: var(--accent); color: var(--bg-main); padding: 0.5rem 1.2rem; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
@@ -92,7 +101,6 @@
             justify-content: center; 
             align-items: center; 
             gap: 20px; 
-            /* NEW: Add transition for PDF crossfade animation */
             transition: opacity 0.3s ease-in-out; 
         }
         canvas.pdf-page-canvas { box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 95%; max-width: 48%; object-fit: contain; }
@@ -138,8 +146,9 @@
             dark: { bg: '#1e1e1e', color: '#dfe6e9' },
             midnight: { bg: '#0f172a', color: '#94a3b8' },
             forest: { bg: '#1a2f23', color: '#d1e7dd' },
-            // NEW: Romantic Theme object for Epub.js
-            romantic: { bg: '#ffe5ec', color: '#880025' }
+            romantic: { bg: '#ffe5ec', color: '#880025' },
+            // NEW: Tech Theme object for Epub.js
+            tech: { bg: '#0A192F', color: '#64FFDA' }
         };
 
         function applyTheme(themeName) {
@@ -390,12 +399,14 @@
             </div>
 
             <div id="theme-menu" class="dropdown-menu">
+                <div class="p-2 text-xs font-bold opacity-50 uppercase">Themes</div>
                 <div class="menu-item" onclick="applyTheme('light')"><div class="theme-circle" style="background:#f8f9fa"></div> Light</div>
                 <div class="menu-item" onclick="applyTheme('sepia')"><div class="theme-circle" style="background:#f4ecd8"></div> Sepia</div>
                 <div class="menu-item" onclick="applyTheme('dark')"><div class="theme-circle" style="background:#1e1e1e"></div> Night</div>
                 <div class="menu-item" onclick="applyTheme('midnight')"><div class="theme-circle" style="background:#0f172a"></div> Midnight</div>
                 <div class="menu-item" onclick="applyTheme('forest')"><div class="theme-circle" style="background:#1a2f23"></div> Forest</div>
                 <div class="menu-item" onclick="applyTheme('romantic')"><div class="theme-circle" style="background:#ffe5ec; border: 1px solid #ff006e;"></div> Romantic</div>
+                <div class="menu-item" onclick="applyTheme('tech')"><div class="theme-circle" style="background:#0A192F; border: 1px solid #64FFDA;"></div> Tech</div>
             </div>
 
             <div id="bookmark-menu" class="dropdown-menu">
