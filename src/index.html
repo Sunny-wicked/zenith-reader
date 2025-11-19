@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com;">
     
     <title>Zenith Reader</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -16,7 +16,6 @@
     <style>
         /* --- THEME DEFINITIONS --- */
         :root {
-            /* Default Light */
             --bg-main: #f8f9fa; --bg-panel: rgba(255, 255, 255, 0.95); --text-main: #2d3436; --accent: #6c5ce7; --border: #e2e8f0;
         }
         body.sepia {
@@ -66,7 +65,18 @@
 
         /* Viewer */
         #viewer-container { width: 100%; height: calc(100vh - 110px); display: flex; justify-content: center; align-items: center; position: relative; }
-        #pdf-viewer-area { display: none; width: 100%; height: 100%; overflow: hidden; display: flex; justify-content: center; align-items: center; gap: 20px; }
+        #pdf-viewer-area { 
+            display: none; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 20px; 
+            /* NEW: Add transition for PDF crossfade animation */
+            transition: opacity 0.3s ease-in-out; 
+        }
         canvas.pdf-page-canvas { box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 95%; max-width: 48%; object-fit: contain; }
         #epub-viewer-area { width: 100%; height: 100%; }
         
@@ -87,6 +97,7 @@
         let savedReadingData = { highlights: [], bookmarks: [], lastPosition: null };
         let currentTheme = localStorage.getItem('appTheme') || 'light'; 
         let pdfDoc = null, pdfPageNum = 1;
+        let currentPdfTitle = '';
 
         // --- PERSISTENCE ---
         function loadReadingData(bookId) {
@@ -180,7 +191,19 @@
                 document.getElementById('book-title').textContent = meta.title || 'EPUB';
                 loadReadingData('epub-' + (meta.title ? meta.title.replace(/\s/g, '') : hash));
                 
-                currentRendition = currentBook.renderTo('epub-viewer-area', { width: "100%", height: "100%", flow: "paginated", spread: "always" });
+                // --- EPUB ANIMATION CHANGE ---
+                const viewerOptions = { 
+                    width: "100%", 
+                    height: "100%", 
+                    flow: "paginated", 
+                    spread: "always", 
+                    minSpreadWidth: 1200, 
+                    transition: 'slide' // Enables the page flip/slide animation
+                };
+
+                currentRendition = currentBook.renderTo('epub-viewer-area', viewerOptions);
+                // --- END EPUB ANIMATION CHANGE ---
+
                 applyTheme(currentTheme);
                 currentRendition.display(savedReadingData.lastPosition || undefined);
 
@@ -201,7 +224,7 @@
                 });
                 
                 // --- FIX FOR EPUB KEYBOARD NAV ---
-                // Sometimes the iframe steals focus, so we add listener to the iframe too
+                // We register a listener INSIDE the book iframe
                 currentRendition.hooks.content.register((contents) => {
                     contents.document.addEventListener('keydown', (e) => {
                         if (e.key === "ArrowLeft") document.getElementById('prev-btn').click();
@@ -222,18 +245,44 @@
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                 pdfDoc = await pdfjsLib.getDocument({ data: atob(data) }).promise;
                 
-                document.getElementById('book-title').textContent = 'PDF Document';
+                // --- PDF TITLE EXTRACTION (From previous step) ---
+                const metadata = await pdfDoc.getMetadata();
+                const filePath = atob(hash); // Decode the file path passed as 'hash'
+                
+                let pdfTitle;
+                if (metadata && metadata.info && metadata.info.Title) {
+                    pdfTitle = metadata.info.Title;
+                } else {
+                    pdfTitle = filePath.split(/[\\/]/).pop().replace(/\.pdf$/i, ''); 
+                }
+
+                document.getElementById('book-title').textContent = pdfTitle; 
+                // --- END PDF TITLE EXTRACTION ---
+
                 loadReadingData('pdf-' + hash);
                 pdfPageNum = savedReadingData.lastPosition || 1;
                 if(pdfPageNum % 2 === 0) pdfPageNum--; 
                 
                 renderPdfSpread();
-            } catch (e) { console.error(e); alert("Failed to load PDF"); }
+            } catch (e) { 
+                console.error(e); 
+                document.getElementById('book-title').textContent = 'Error loading PDF'; 
+                alert("Failed to load PDF"); 
+            }
         }
 
         async function renderPdfSpread() {
             if (!pdfDoc) return;
-            const area = document.getElementById('pdf-viewer-area'); area.innerHTML = '';
+            const area = document.getElementById('pdf-viewer-area');
+            
+            // --- 1. FADE OUT CURRENT PAGES (Start Animation) ---
+            area.style.opacity = '0';
+            
+            // Wait for the fade-out to finish (300ms, matching the CSS transition time)
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // --- 2. CLEAR AND RENDER NEW PAGES ---
+            area.innerHTML = ''; // Clear old canvases
             
             const renderPage = async (num) => {
                 const page = await pdfDoc.getPage(num);
@@ -247,6 +296,10 @@
             if(pdfPageNum <= pdfDoc.numPages) await renderPage(pdfPageNum);
             if(pdfPageNum + 1 <= pdfDoc.numPages) await renderPage(pdfPageNum + 1);
 
+            // --- 3. FADE NEW PAGES IN (Finish Animation) ---
+            area.style.opacity = '1';
+
+            // --- 4. UPDATE STATE ---
             document.getElementById('location-display').textContent = `Page ${pdfPageNum} / ${pdfDoc.numPages}`;
             savedReadingData.lastPosition = pdfPageNum; saveReadingData();
             updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === pdfPageNum));
@@ -261,10 +314,12 @@
                 m.style.display = m.style.display === 'block' ? 'none' : 'block';
             };
 
+            // Menu Toggles
             document.getElementById('theme-btn').onclick = (e) => { e.stopPropagation(); toggleMenu('theme-menu'); document.getElementById('bookmark-menu').style.display='none'; };
             document.getElementById('list-btn').onclick = (e) => { e.stopPropagation(); toggleMenu('bookmark-menu'); document.getElementById('theme-menu').style.display='none'; };
             document.getElementById('bookmark-btn').onclick = toggleBookmark;
             
+            // Navigation Buttons
             document.getElementById('prev-btn').onclick = () => {
                 if(currentReaderType === 'epub') currentRendition.prev();
                 else { if(pdfPageNum > 1) { pdfPageNum -= 2; renderPdfSpread(); } }
@@ -274,7 +329,8 @@
                 else { if(pdfPageNum < pdfDoc.numPages) { pdfPageNum += 2; renderPdfSpread(); } }
             };
 
-            // --- KEYBOARD SUPPORT ADDED HERE ---
+            // --- KEYBOARD SUPPORT (GLOBAL) ---
+            // This handles keys when clicking outside the book (e.g. on the sidebar)
             document.addEventListener('keydown', (e) => {
                 if (e.key === "ArrowLeft") {
                     document.getElementById('prev-btn').click();
@@ -283,6 +339,7 @@
                 }
             });
 
+            // Open File
             document.getElementById('open-file-btn').onclick = async () => {
                 if(window.electronAPI) {
                     const res = await window.electronAPI.openBookFile();
@@ -293,6 +350,7 @@
                 }
             };
 
+            // Click away to close menus
             document.onclick = () => {
                 document.getElementById('theme-menu').style.display = 'none';
                 document.getElementById('bookmark-menu').style.display = 'none';

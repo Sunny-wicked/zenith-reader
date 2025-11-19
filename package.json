@@ -1,11 +1,12 @@
 {
   "name": "zenith-reader",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A lightweight Offline E-Reader",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "publish": "electron-builder --publish always"
   },
   "author": "Praheel Kumar",
   "license": "ISC",
@@ -16,13 +17,22 @@
   "dependencies": {
     "epubjs": "^0.3.93",
     "jszip": "^3.10.1",
-    "pdfjs-dist": "^4.2.67"
+    "pdfjs-dist": "^4.2.67",
+    "electron-updater": "^6.1.7"
   },
   "build": {
     "appId": "com.zenith.reader",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Sunny-wicked",
+        "repo": "zenith-reader"
+      }
+    ],
     "win": {
       "target": "nsis",
-      "icon": "icon.ico"
+      "icon": "icon.ico",
+      "verifyUpdateCodeSignature": false
     },
     "files": [
       "**/*",
