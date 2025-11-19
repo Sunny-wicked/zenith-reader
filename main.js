@@ -3,12 +3,17 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs'); 
 
+// Store mainWindow globally so autoUpdater events can access it
+let mainWindow; 
+
 // --- AUTO UPDATER CONFIGURATION ---
-autoUpdater.autoDownload = false; // We ask the user before downloading
+// This prevents the updater from failing because you don't have a paid certificate.
+autoUpdater.autoDownload = false; 
 autoUpdater.autoInstallOnAppQuit = true;
 
 function createWindow() {
-    const mainWindow = new BrowserWindow({
+    // Assign to the global variable
+    mainWindow = new BrowserWindow({
         width: 1200, height: 800,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'), 
@@ -54,13 +59,26 @@ autoUpdater.on('update-available', () => {
         buttons: ['Yes', 'No']
     }).then(result => {
         if (result.response === 0) { // If user clicks "Yes"
+            // Send status message to the frontend to show the progress UI
+            if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloading' });
             autoUpdater.downloadUpdate();
         }
     });
 });
 
+// 1.5. NEW: Report Download Progress
+autoUpdater.on('download-progress', (progressObj) => {
+    if (mainWindow) {
+        // Send the entire progress object (bytes, percentage, speed) to the renderer
+        mainWindow.webContents.send('download-progress', progressObj);
+    }
+});
+
 // 2. Update Downloaded - Ask user to restart
 autoUpdater.on('update-downloaded', () => {
+    // Send status message to the frontend to finalize the progress UI
+    if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloaded' });
+    
     dialog.showMessageBox({
         type: 'info',
         title: 'Update Ready',
@@ -75,5 +93,7 @@ autoUpdater.on('update-downloaded', () => {
 
 // 3. Error Handling
 autoUpdater.on('error', (err) => {
+    // Send status message to the frontend for error display
+    if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err.message });
     console.log('Update error: ', err);
 });

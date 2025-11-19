@@ -4,7 +4,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 // they were causing the script to crash in your specific environment.
 
 // --- Electron API Bridge ---
-// This is the ONLY job of this script now.
 contextBridge.exposeInMainWorld('electronAPI', {
-    openBookFile: () => ipcRenderer.invoke('open-book-file')
+    openBookFile: () => ipcRenderer.invoke('open-book-file'),
+    
+    // NEW: Expose a listener function for the renderer process to receive events
+    ipcRenderer: {
+        on: (channel, callback) => ipcRenderer.on(channel, callback)
+    }
 });

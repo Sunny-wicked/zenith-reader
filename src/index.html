@@ -43,20 +43,17 @@
         body.romantic .nav-arrow:hover {
             transform: translateY(-50%) scale(1.2) rotate(1deg);
         }
-
-        /* NEW: Tech Theme */
         body.tech {
-            --bg-main: #0A192F; /* Deep Navy Blue */
-            --bg-panel: rgba(17, 34, 51, 0.95); /* Transparent Darker Blue */
-            --text-main: #8892B0; /* Light Slate/Grey */
-            --accent: #64FFDA; /* Neon Cyan */
-            --border: #334155; /* Blueish-Grey Border */
+            --bg-main: #0A192F; 
+            --bg-panel: rgba(17, 34, 51, 0.95); 
+            --text-main: #8892B0; 
+            --accent: #64FFDA; 
+            --border: #334155; 
         }
         body.tech .btn-primary {
-            /* Neon Glow Effect */
             box-shadow: 0 0 10px var(--accent), 0 0 20px rgba(100, 255, 218, 0.5);
         }
-        /* END NEW THEME */
+        /* END THEMES */
 
         body {
             background-color: var(--bg-main); color: var(--text-main);
@@ -147,8 +144,7 @@
             midnight: { bg: '#0f172a', color: '#94a3b8' },
             forest: { bg: '#1a2f23', color: '#d1e7dd' },
             romantic: { bg: '#ffe5ec', color: '#880025' },
-            // NEW: Tech Theme object for Epub.js
-            tech: { bg: '#0A192F', color: '#64FFDA' }
+            tech: { bg: '#0A192F', color: '#8892B0' } // Use the main text color here for content
         };
 
         function applyTheme(themeName) {
@@ -382,6 +378,53 @@
                 document.getElementById('theme-menu').style.display = 'none';
                 document.getElementById('bookmark-menu').style.display = 'none';
             };
+            
+            // --- NEW: AUTO UPDATER RENDERER LISTENERS (Progress Bar Logic) ---
+            const progressContainer = document.getElementById('download-progress-status');
+            const progressBar = document.getElementById('download-bar');
+            const progressMessage = document.getElementById('download-message');
+            const progressDetails = document.getElementById('download-details');
+
+            if (window.electronAPI && window.electronAPI.ipcRenderer) {
+                // Listener for status changes (start, complete, error)
+                window.electronAPI.ipcRenderer.on('update-status', (event, data) => {
+                    if (data.status === 'downloading') {
+                        // Show overlay when download starts
+                        progressContainer.style.display = 'flex';
+                        progressMessage.textContent = 'Downloading Update...';
+                        progressBar.style.width = '0%';
+                        progressDetails.textContent = '0%';
+                    } else if (data.status === 'downloaded') {
+                        // Show completion and hide the overlay after a delay
+                        progressMessage.textContent = 'Download Complete! Preparing to install...';
+                        progressBar.style.width = '100%';
+                        progressDetails.textContent = '100% - Restarting soon.';
+                        // Hide after 3 seconds, giving time for the install prompt
+                        setTimeout(() => progressContainer.style.display = 'none', 3000); 
+                    } else if (data.status === 'error') {
+                        // Display error state
+                        progressMessage.textContent = `Update Error!`;
+                        progressContainer.style.display = 'flex';
+                        progressBar.style.width = '0%';
+                        progressDetails.textContent = `Download failed: ${data.message}. Please restart the app.`;
+                    }
+                });
+
+                // Listener for continuous progress updates
+                window.electronAPI.ipcRenderer.on('download-progress', (event, progressObj) => {
+                    const percent = Math.floor(progressObj.percent);
+                    // Convert bytes to MB for professional display
+                    const bytesPerSecond = (progressObj.bytesPerSecond / (1024 * 1024)).toFixed(2);
+                    const transferred = (progressObj.transferred / (1024 * 1024)).toFixed(2);
+                    const total = (progressObj.total / (1024 * 1024)).toFixed(2);
+                    
+                    // Update visual elements
+                    progressBar.style.width = `${percent}%`;
+                    
+                    progressDetails.textContent = 
+                        `${percent}% (${transferred} MB of ${total} MB) @ ${bytesPerSecond} MB/s`;
+                });
+            }
         });
     </script>
 </head>
@@ -397,7 +440,15 @@
                 <div id="list-btn" class="btn-icon" title="Saved Bookmarks"><i class="ph ph-list text-xl"></i></div>
                 <div id="theme-btn" class="btn-icon" title="Themes"><i class="ph ph-palette text-xl"></i></div>
             </div>
-
+            
+            <div id="download-progress-status" class="absolute w-full h-full top-0 left-0 bg-gray-900/90 text-white flex flex-col items-center justify-center p-4 z-40 transition-opacity duration-500" style="display: none;">
+                <i class="ph ph-cloud-arrow-down text-4xl mb-3 animate-pulse"></i>
+                <span id="download-message" class="text-xl font-semibold mb-3">Downloading Update...</span>
+                <div class="w-1/3 bg-gray-700 rounded-full h-3 mb-2">
+                    <div id="download-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <span id="download-details" class="text-sm opacity-70">0% (0 MB of 0 MB) @ 0.00 MB/s</span>
+            </div>
             <div id="theme-menu" class="dropdown-menu">
                 <div class="p-2 text-xs font-bold opacity-50 uppercase">Themes</div>
                 <div class="menu-item" onclick="applyTheme('light')"><div class="theme-circle" style="background:#f8f9fa"></div> Light</div>
