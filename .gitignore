@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+npm-debug.log
+
+# Build Output (Do not upload these!)
+dist/
+release/
+build/
+out/
+
+# Environment variables
+.env
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# IDE files (Optional)
+.vscode/
+.idea/

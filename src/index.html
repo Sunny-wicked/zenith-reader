@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com;">
+    
+    <title>Zenith Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="../node_modules/jszip/dist/jszip.min.js"></script>
+    <script src="../node_modules/epubjs/dist/epub.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        /* --- THEME DEFINITIONS --- */
+        :root {
+            /* Default Light */
+            --bg-main: #f8f9fa; --bg-panel: rgba(255, 255, 255, 0.95); --text-main: #2d3436; --accent: #6c5ce7; --border: #e2e8f0;
+        }
+        body.sepia {
+            --bg-main: #f4ecd8; --bg-panel: rgba(244, 236, 216, 0.95); --text-main: #5b4636; --accent: #d35400; --border: #e0d6c2;
+        }
+        body.dark {
+            --bg-main: #1e1e1e; --bg-panel: rgba(40, 40, 40, 0.95); --text-main: #dfe6e9; --accent: #a29bfe; --border: #444;
+        }
+        body.midnight {
+            --bg-main: #0f172a; --bg-panel: rgba(30, 41, 59, 0.95); --text-main: #94a3b8; --accent: #38bdf8; --border: #334155;
+        }
+        body.forest {
+            --bg-main: #1a2f23; --bg-panel: rgba(25, 45, 35, 0.95); --text-main: #d1e7dd; --accent: #2ecc71; --border: #2c4a3b;
+        }
+
+        body {
+            background-color: var(--bg-main); color: var(--text-main);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            font-family: 'Segoe UI', sans-serif; overflow: hidden;
+        }
+
+        /* UI Elements */
+        .glass-panel { background: var(--bg-panel); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+        .glass-footer { background: var(--bg-panel); backdrop-filter: blur(12px); border-top: 1px solid var(--border); }
+        
+        .btn-icon { padding: 8px; border-radius: 8px; cursor: pointer; color: var(--text-main); transition: 0.2s; }
+        .btn-icon:hover { background-color: rgba(0,0,0,0.05); color: var(--accent); }
+        body.dark .btn-icon:hover, body.midnight .btn-icon:hover { background-color: rgba(255,255,255,0.1); }
+
+        .btn-primary {
+            background-color: var(--accent); color: white; padding: 0.5rem 1.2rem; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+        /* Menus */
+        .dropdown-menu {
+            position: absolute; top: 70px; right: 20px; width: 220px;
+            background: var(--bg-panel); border: 1px solid var(--border);
+            border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            padding: 0.5rem; display: none; z-index: 50;
+        }
+        .menu-item { padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .menu-item:hover { background-color: rgba(0,0,0,0.05); }
+        
+        /* Theme Circles */
+        .theme-circle { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #ccc; }
+
+        /* Viewer */
+        #viewer-container { width: 100%; height: calc(100vh - 110px); display: flex; justify-content: center; align-items: center; position: relative; }
+        #pdf-viewer-area { display: none; width: 100%; height: 100%; overflow: hidden; display: flex; justify-content: center; align-items: center; gap: 20px; }
+        canvas.pdf-page-canvas { box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 95%; max-width: 48%; object-fit: contain; }
+        #epub-viewer-area { width: 100%; height: 100%; }
+        
+        /* Navigation */
+        .nav-arrow {
+            position: absolute; top: 50%; transform: translateY(-50%); z-index: 20;
+            background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-main);
+            width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: 0.2s;
+        }
+        .nav-arrow:hover { color: var(--accent); transform: translateY(-50%) scale(1.1); }
+        #prev-btn { left: 20px; } #next-btn { right: 20px; }
+    </style>
+
+    <script>
+        // --- STATE ---
+        let currentBook = null, currentRendition = null, currentReaderType = null, currentBookId = null; 
+        let savedReadingData = { highlights: [], bookmarks: [], lastPosition: null };
+        let currentTheme = localStorage.getItem('appTheme') || 'light'; 
+        let pdfDoc = null, pdfPageNum = 1;
+
+        // --- PERSISTENCE ---
+        function loadReadingData(bookId) {
+            currentBookId = bookId; 
+            const storedData = localStorage.getItem(`reading_data_${bookId}`);
+            savedReadingData = storedData ? JSON.parse(storedData) : { highlights: [], bookmarks: [], lastPosition: null };
+            renderBookmarkList();
+        }
+
+        function saveReadingData() {
+            if (!currentBookId) return;
+            localStorage.setItem(`reading_data_${currentBookId}`, JSON.stringify(savedReadingData));
+            renderBookmarkList();
+        }
+
+        // --- THEME ENGINE ---
+        const themes = {
+            light: { bg: '#f8f9fa', color: '#2d3436' },
+            sepia: { bg: '#f4ecd8', color: '#5b4636' },
+            dark: { bg: '#1e1e1e', color: '#dfe6e9' },
+            midnight: { bg: '#0f172a', color: '#94a3b8' },
+            forest: { bg: '#1a2f23', color: '#d1e7dd' }
+        };
+
+        function applyTheme(themeName) {
+            currentTheme = themeName;
+            document.body.className = themeName; 
+            localStorage.setItem('appTheme', themeName);
+
+            if (currentRendition && currentReaderType === 'epub') {
+                const t = themes[themeName];
+                currentRendition.themes.register(themeName, { body: { color: t.color, background: t.bg } });
+                currentRendition.themes.select(themeName);
+            }
+            
+            document.getElementById('theme-menu').style.display = 'none';
+        }
+
+        // --- BOOKMARKS ---
+        function toggleBookmark() {
+            if (!currentBookId) return;
+            let pos = currentReaderType === 'epub' ? currentRendition.currentLocation().start.cfi : pdfPageNum;
+            const idx = savedReadingData.bookmarks.findIndex(b => b.position === pos);
+            
+            if (idx > -1) savedReadingData.bookmarks.splice(idx, 1);
+            else savedReadingData.bookmarks.push({ position: pos, label: `Mark ${savedReadingData.bookmarks.length + 1}`, date: new Date().toLocaleDateString() });
+            
+            saveReadingData();
+            updateBookmarkIcon(idx === -1); 
+        }
+
+        function updateBookmarkIcon(isActive) {
+            const icon = document.getElementById('bookmark-icon');
+            icon.className = isActive ? "ph-fill ph-bookmark-simple" : "ph ph-bookmark-simple";
+            icon.style.color = isActive ? "var(--accent)" : "var(--text-main)";
+        }
+
+        function renderBookmarkList() {
+            const list = document.getElementById('bookmark-list-content');
+            list.innerHTML = '';
+            if (savedReadingData.bookmarks.length === 0) list.innerHTML = '<div class="p-2 text-xs opacity-50">No bookmarks</div>';
+            
+            savedReadingData.bookmarks.forEach((bm, i) => {
+                const el = document.createElement('div');
+                el.className = 'menu-item';
+                el.innerHTML = `<span>${bm.label}</span> <i class="ph ph-trash ml-auto text-red-400 hover:text-red-600"></i>`;
+                el.onclick = (e) => { if(!e.target.classList.contains('ph-trash')) jumpTo(bm.position); };
+                el.querySelector('.ph-trash').onclick = () => { savedReadingData.bookmarks.splice(i, 1); saveReadingData(); };
+                list.appendChild(el);
+            });
+        }
+
+        function jumpTo(pos) {
+            if (currentReaderType === 'epub') currentRendition.display(pos);
+            else { pdfPageNum = typeof pos === 'number' ? pos : 1; renderPdfSpread(); }
+        }
+
+        // --- PDF & EPUB LOADERS ---
+        function setReaderMode(type) {
+            document.getElementById('epub-viewer-area').style.display = type === 'epub' ? 'block' : 'none';
+            document.getElementById('pdf-viewer-area').style.display = type === 'pdf' ? 'flex' : 'none';
+            currentReaderType = type;
+        }
+
+        function loadEpub(data, hash) {
+            if (currentBook) currentBook.destroy();
+            currentBook = ePub(data, { encoding: "base64" });
+            setReaderMode('epub');
+
+            currentBook.loaded.metadata.then(meta => {
+                document.getElementById('book-title').textContent = meta.title || 'EPUB';
+                loadReadingData('epub-' + (meta.title ? meta.title.replace(/\s/g, '') : hash));
+                
+                currentRendition = currentBook.renderTo('epub-viewer-area', { width: "100%", height: "100%", flow: "paginated", spread: "always" });
+                applyTheme(currentTheme);
+                currentRendition.display(savedReadingData.lastPosition || undefined);
+
+                currentRendition.on('locationChanged', (loc) => {
+                    savedReadingData.lastPosition = loc.start.cfi;
+                    saveReadingData();
+                    
+                    try {
+                        if (currentBook.locations.length() > 0) {
+                            const pct = currentBook.locations.percentageFromCfi(loc.start.cfi);
+                            document.getElementById('location-display').textContent = `${Math.round(pct * 100)}%`;
+                        } else {
+                            document.getElementById('location-display').textContent = `Calculating...`;
+                        }
+                    } catch(e) { console.log("Loc calculation pending..."); }
+
+                    updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === loc.start.cfi));
+                });
+                
+                // --- FIX FOR EPUB KEYBOARD NAV ---
+                // Sometimes the iframe steals focus, so we add listener to the iframe too
+                currentRendition.hooks.content.register((contents) => {
+                    contents.document.addEventListener('keydown', (e) => {
+                        if (e.key === "ArrowLeft") document.getElementById('prev-btn').click();
+                        if (e.key === "ArrowRight") document.getElementById('next-btn').click();
+                    });
+                });
+
+                currentBook.ready.then(() => currentBook.locations.generate(1000));
+                window.addEventListener('resize', () => currentRendition.resize());
+            });
+        }
+
+        async function loadPdf(data, hash) {
+            setReaderMode('pdf');
+            const area = document.getElementById('pdf-viewer-area'); area.innerHTML = '';
+            
+            try {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                pdfDoc = await pdfjsLib.getDocument({ data: atob(data) }).promise;
+                
+                document.getElementById('book-title').textContent = 'PDF Document';
+                loadReadingData('pdf-' + hash);
+                pdfPageNum = savedReadingData.lastPosition || 1;
+                if(pdfPageNum % 2 === 0) pdfPageNum--; 
+                
+                renderPdfSpread();
+            } catch (e) { console.error(e); alert("Failed to load PDF"); }
+        }
+
+        async function renderPdfSpread() {
+            if (!pdfDoc) return;
+            const area = document.getElementById('pdf-viewer-area'); area.innerHTML = '';
+            
+            const renderPage = async (num) => {
+                const page = await pdfDoc.getPage(num);
+                const viewport = page.getViewport({ scale: 1.2 });
+                const cvs = document.createElement('canvas');
+                cvs.className = 'pdf-page-canvas'; cvs.height = viewport.height; cvs.width = viewport.width;
+                area.appendChild(cvs);
+                await page.render({ canvasContext: cvs.getContext('2d'), viewport }).promise;
+            };
+
+            if(pdfPageNum <= pdfDoc.numPages) await renderPage(pdfPageNum);
+            if(pdfPageNum + 1 <= pdfDoc.numPages) await renderPage(pdfPageNum + 1);
+
+            document.getElementById('location-display').textContent = `Page ${pdfPageNum} / ${pdfDoc.numPages}`;
+            savedReadingData.lastPosition = pdfPageNum; saveReadingData();
+            updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === pdfPageNum));
+        }
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            applyTheme(currentTheme);
+            
+            const toggleMenu = (id) => {
+                const m = document.getElementById(id);
+                m.style.display = m.style.display === 'block' ? 'none' : 'block';
+            };
+
+            document.getElementById('theme-btn').onclick = (e) => { e.stopPropagation(); toggleMenu('theme-menu'); document.getElementById('bookmark-menu').style.display='none'; };
+            document.getElementById('list-btn').onclick = (e) => { e.stopPropagation(); toggleMenu('bookmark-menu'); document.getElementById('theme-menu').style.display='none'; };
+            document.getElementById('bookmark-btn').onclick = toggleBookmark;
+            
+            document.getElementById('prev-btn').onclick = () => {
+                if(currentReaderType === 'epub') currentRendition.prev();
+                else { if(pdfPageNum > 1) { pdfPageNum -= 2; renderPdfSpread(); } }
+            };
+            document.getElementById('next-btn').onclick = () => {
+                if(currentReaderType === 'epub') currentRendition.next();
+                else { if(pdfPageNum < pdfDoc.numPages) { pdfPageNum += 2; renderPdfSpread(); } }
+            };
+
+            // --- KEYBOARD SUPPORT ADDED HERE ---
+            document.addEventListener('keydown', (e) => {
+                if (e.key === "ArrowLeft") {
+                    document.getElementById('prev-btn').click();
+                } else if (e.key === "ArrowRight") {
+                    document.getElementById('next-btn').click();
+                }
+            });
+
+            document.getElementById('open-file-btn').onclick = async () => {
+                if(window.electronAPI) {
+                    const res = await window.electronAPI.openBookFile();
+                    if(!res.canceled && !res.error) {
+                        if(res.fileExtension === 'epub') loadEpub(res.fileData, btoa(res.filePath));
+                        else loadPdf(res.fileData, btoa(res.filePath));
+                    }
+                }
+            };
+
+            document.onclick = () => {
+                document.getElementById('theme-menu').style.display = 'none';
+                document.getElementById('bookmark-menu').style.display = 'none';
+            };
+        });
+    </script>
+</head>
+<body>
+    <div id="app" class="flex flex-col h-screen">
+        <header class="glass-panel h-16 px-6 flex justify-between items-center z-30 relative shadow-sm">
+            <div class="flex items-center space-x-4">
+                <button id="open-file-btn" class="btn-primary flex items-center gap-2"><i class="ph-bold ph-book-open"></i> Open</button>
+                <h1 id="book-title" class="text-lg font-semibold opacity-80 truncate max-w-md select-none">Zenith Reader</h1>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div id="bookmark-btn" class="btn-icon" title="Bookmark Page"><i id="bookmark-icon" class="ph ph-bookmark-simple text-xl"></i></div>
+                <div id="list-btn" class="btn-icon" title="Saved Bookmarks"><i class="ph ph-list text-xl"></i></div>
+                <div id="theme-btn" class="btn-icon" title="Themes"><i class="ph ph-palette text-xl"></i></div>
+            </div>
+
+            <div id="theme-menu" class="dropdown-menu">
+                <div class="menu-item" onclick="applyTheme('light')"><div class="theme-circle" style="background:#f8f9fa"></div> Light</div>
+                <div class="menu-item" onclick="applyTheme('sepia')"><div class="theme-circle" style="background:#f4ecd8"></div> Sepia</div>
+                <div class="menu-item" onclick="applyTheme('dark')"><div class="theme-circle" style="background:#1e1e1e"></div> Night</div>
+                <div class="menu-item" onclick="applyTheme('midnight')"><div class="theme-circle" style="background:#0f172a"></div> Midnight</div>
+                <div class="menu-item" onclick="applyTheme('forest')"><div class="theme-circle" style="background:#1a2f23"></div> Forest</div>
+            </div>
+
+            <div id="bookmark-menu" class="dropdown-menu">
+                <div class="p-2 text-xs font-bold opacity-50 uppercase">Saved Bookmarks</div>
+                <div id="bookmark-list-content"></div>
+            </div>
+        </header>
+
+        <div id="viewer-container">
+            <button id="prev-btn" class="nav-arrow left-4"><i class="ph-bold ph-caret-left"></i></button>
+            <div id="epub-viewer-area"></div>
+            <div id="pdf-viewer-area"></div>
+            <button id="next-btn" class="nav-arrow right-4"><i class="ph-bold ph-caret-right"></i></button>
+        </div>
+
+        <footer class="glass-footer h-8 flex justify-center items-center text-xs font-medium opacity-70 select-none">
+            <span id="location-display">No book loaded</span>
+        </footer>
+    </div>
+</body>
+</html>
