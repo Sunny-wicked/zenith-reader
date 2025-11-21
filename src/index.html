@@ -53,7 +53,6 @@
         body.tech .btn-primary {
             box-shadow: 0 0 10px var(--accent), 0 0 20px rgba(100, 255, 218, 0.5);
         }
-        
         body.ocean-blue {
             --bg-main: #E0F7FA; 
             --bg-panel: rgba(255, 255, 255, 0.95); 
@@ -225,19 +224,16 @@
                 document.getElementById('book-title').textContent = meta.title || 'EPUB';
                 loadReadingData('epub-' + (meta.title ? meta.title.replace(/\s/g, '') : hash));
                 
-                // --- EPUB ANIMATION CONFIGURATION ---
                 const viewerOptions = { 
                     width: "100%", 
                     height: "100%", 
                     flow: "paginated", 
                     spread: "always", 
                     minSpreadWidth: 1200, 
-                    transition: 'slide' // Enables the page flip/slide animation
+                    transition: 'slide' 
                 };
 
                 currentRendition = currentBook.renderTo('epub-viewer-area', viewerOptions);
-                // --- END EPUB ANIMATION CONFIGURATION ---
-
                 applyTheme(currentTheme);
                 currentRendition.display(savedReadingData.lastPosition || undefined);
 
@@ -257,7 +253,6 @@
                     updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === loc.start.cfi));
                 });
                 
-                // --- FIX FOR EPUB KEYBOARD NAV ---
                 currentRendition.hooks.content.register((contents) => {
                     contents.document.addEventListener('keydown', (e) => {
                         if (e.key === "ArrowLeft") document.getElementById('prev-btn').click();
@@ -278,7 +273,6 @@
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                 pdfDoc = await pdfjsLib.getDocument({ data: atob(data) }).promise;
                 
-                // --- PDF TITLE EXTRACTION ---
                 const metadata = await pdfDoc.getMetadata();
                 const filePath = atob(hash); 
                 
@@ -307,14 +301,10 @@
             if (!pdfDoc) return;
             const area = document.getElementById('pdf-viewer-area');
             
-            // --- 1. FADE OUT CURRENT PAGES (Start Crossfade) ---
             area.style.opacity = '0';
-            
-            // Wait for the fade-out to finish (300ms, matching the CSS transition time)
             await new Promise(resolve => setTimeout(resolve, 300));
             
-            // --- 2. CLEAR AND RENDER NEW PAGES ---
-            area.innerHTML = ''; // Clear old canvases
+            area.innerHTML = ''; 
             
             const renderPage = async (num) => {
                 const page = await pdfDoc.getPage(num);
@@ -328,10 +318,8 @@
             if(pdfPageNum <= pdfDoc.numPages) await renderPage(pdfPageNum);
             if(pdfPageNum + 1 <= pdfDoc.numPages) await renderPage(pdfPageNum + 1);
 
-            // --- 3. FADE NEW PAGES IN (Finish Crossfade) ---
             area.style.opacity = '1';
 
-            // --- 4. UPDATE STATE ---
             document.getElementById('location-display').textContent = `Page ${pdfPageNum} / ${pdfDoc.numPages}`;
             savedReadingData.lastPosition = pdfPageNum; saveReadingData();
             updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === pdfPageNum));
@@ -351,6 +339,31 @@
             document.getElementById('list-btn').onclick = (e) => { e.stopPropagation(); toggleMenu('bookmark-menu'); document.getElementById('theme-menu').style.display='none'; };
             document.getElementById('bookmark-btn').onclick = toggleBookmark;
             
+            // --- FULLSCREEN LOGIC (NEW) ---
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            const fullscreenIcon = document.getElementById('fullscreen-icon');
+            let isFullscreen = false;
+
+            fullscreenBtn.onclick = async () => {
+                if (window.electronAPI) {
+                    await window.electronAPI.toggleFullscreen();
+                    isFullscreen = !isFullscreen;
+                    updateFullscreenIcon();
+                }
+            };
+
+            function updateFullscreenIcon() {
+                if (isFullscreen) {
+                    // Switch to "Corners In" icon (Contract/Exit)
+                    fullscreenIcon.classList.remove('ph-corners-out');
+                    fullscreenIcon.classList.add('ph-corners-in');
+                } else {
+                    // Switch to "Corners Out" icon (Expand/Enter)
+                    fullscreenIcon.classList.remove('ph-corners-in');
+                    fullscreenIcon.classList.add('ph-corners-out');
+                }
+            }
+
             // Navigation Buttons
             document.getElementById('prev-btn').onclick = () => {
                 if(currentReaderType === 'epub') currentRendition.prev();
@@ -359,7 +372,6 @@
             document.getElementById('next-btn').onclick = () => {
                 if(currentReaderType === 'epub') currentRendition.next();
                 else { if(pdfPageNum < pdfDoc.numPages) { pdfPageNum += 2; renderPdfSpread(); } }
-                
             };
 
             // --- KEYBOARD SUPPORT (GLOBAL) ---
@@ -368,6 +380,13 @@
                     document.getElementById('prev-btn').click();
                 } else if (e.key === "ArrowRight") {
                     document.getElementById('next-btn').click();
+                } else if (e.key === "Escape") {
+                    // NEW: Allow ESC key to exit fullscreen
+                    if (isFullscreen && window.electronAPI) {
+                        window.electronAPI.toggleFullscreen();
+                        isFullscreen = false;
+                        updateFullscreenIcon();
+                    }
                 }
             });
 
@@ -387,6 +406,44 @@
                 document.getElementById('theme-menu').style.display = 'none';
                 document.getElementById('bookmark-menu').style.display = 'none';
             };
+            
+            // Auto Updater Listeners
+            const progressContainer = document.getElementById('download-progress-status');
+            const progressBar = document.getElementById('download-bar');
+            const progressMessage = document.getElementById('download-message');
+            const progressDetails = document.getElementById('download-details');
+
+            if (window.electronAPI && window.electronAPI.ipcRenderer) {
+                window.electronAPI.ipcRenderer.on('update-status', (event, data) => {
+                    if (data.status === 'downloading') {
+                        progressContainer.style.display = 'flex';
+                        progressMessage.textContent = 'Downloading Update...';
+                        progressBar.style.width = '0%';
+                        progressDetails.textContent = '0%';
+                    } else if (data.status === 'downloaded') {
+                        progressMessage.textContent = 'Download Complete! Preparing to install...';
+                        progressBar.style.width = '100%';
+                        progressDetails.textContent = '100% - Restarting soon.';
+                        setTimeout(() => progressContainer.style.display = 'none', 3000); 
+                    } else if (data.status === 'error') {
+                        progressMessage.textContent = `Update Error!`;
+                        progressContainer.style.display = 'flex';
+                        progressBar.style.width = '0%';
+                        progressDetails.textContent = `Download failed: ${data.message}. Please restart the app.`;
+                    }
+                });
+
+                window.electronAPI.ipcRenderer.on('download-progress', (event, progressObj) => {
+                    const percent = Math.floor(progressObj.percent);
+                    const bytesPerSecond = (progressObj.bytesPerSecond / (1024 * 1024)).toFixed(2);
+                    const transferred = (progressObj.transferred / (1024 * 1024)).toFixed(2);
+                    const total = (progressObj.total / (1024 * 1024)).toFixed(2);
+                    
+                    progressBar.style.width = `${percent}%`;
+                    progressDetails.textContent = 
+                        `${percent}% (${transferred} MB of ${total} MB) @ ${bytesPerSecond} MB/s`;
+                });
+            }
         });
     </script>
 </head>
@@ -398,11 +455,22 @@
                 <h1 id="book-title" class="text-lg font-semibold opacity-80 truncate max-w-md select-none">Zenith Reader</h1>
             </div>
             <div class="flex items-center space-x-2">
+                <div id="fullscreen-btn" class="btn-icon" title="Toggle Fullscreen"><i id="fullscreen-icon" class="ph ph-corners-out text-xl"></i></div>
+                
                 <div id="bookmark-btn" class="btn-icon" title="Bookmark Page"><i id="bookmark-icon" class="ph ph-bookmark-simple text-xl"></i></div>
                 <div id="list-btn" class="btn-icon" title="Saved Bookmarks"><i class="ph ph-list text-xl"></i></div>
                 <div id="theme-btn" class="btn-icon" title="Themes"><i class="ph ph-palette text-xl"></i></div>
             </div>
             
+            <div id="download-progress-status" class="absolute w-full h-full top-0 left-0 bg-gray-900/90 text-white flex flex-col items-center justify-center p-4 z-40 transition-opacity duration-500" style="display: none;">
+                <i class="ph ph-cloud-arrow-down text-4xl mb-3 animate-pulse"></i>
+                <span id="download-message" class="text-xl font-semibold mb-3">Downloading Update...</span>
+                <div class="w-1/3 bg-gray-700 rounded-full h-3 mb-2">
+                    <div id="download-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <span id="download-details" class="text-sm opacity-70">0% (0 MB of 0 MB) @ 0.00 MB/s</span>
+            </div>
+
             <div id="theme-menu" class="dropdown-menu">
                 <div class="p-2 text-xs font-bold opacity-50 uppercase">Themes</div>
                 <div class="menu-item" onclick="applyTheme('light')"><div class="theme-circle" style="background:#f8f9fa"></div> Light</div>

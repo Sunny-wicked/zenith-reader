@@ -1,6 +1,6 @@
 {
   "name": "zenith-reader",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A lightweight Offline E-Reader",
   "main": "main.js",
   "scripts": {

@@ -7,14 +7,15 @@ const fs = require('fs');
 let mainWindow; 
 
 // --- AUTO UPDATER CONFIGURATION ---
-// This prevents the updater from failing because you don't have a paid certificate.
 autoUpdater.autoDownload = false; 
 autoUpdater.autoInstallOnAppQuit = true;
 
 function createWindow() {
     // Assign to the global variable
     mainWindow = new BrowserWindow({
-        width: 1200, height: 800,
+        width: 1200, 
+        height: 800,
+        show: false, // HIDE initially to prevent visual resizing flicker
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'), 
             contextIsolation: true, 
@@ -25,6 +26,8 @@ function createWindow() {
 
     // Check for updates once the window is ready
     mainWindow.once('ready-to-show', () => {
+        mainWindow.maximize(); // Maximize to user's screen size
+        mainWindow.show();     // Show the window now that it is ready
         autoUpdater.checkForUpdatesAndNotify();
     });
 }
@@ -48,9 +51,18 @@ ipcMain.handle('open-book-file', async () => {
     };
 });
 
+// --- FULLSCREEN TOGGLE LOGIC ---
+ipcMain.handle('toggle-fullscreen', () => {
+    if (mainWindow.isFullScreen()) {
+        mainWindow.setFullScreen(false);
+    } else {
+        mainWindow.setFullScreen(true);
+    }
+});
+
 // --- AUTO UPDATER EVENTS ---
 
-// 1. Update Available - Ask user if they want to download
+// 1. Update Available
 autoUpdater.on('update-available', () => {
     dialog.showMessageBox({
         type: 'info',
@@ -58,25 +70,22 @@ autoUpdater.on('update-available', () => {
         message: 'A new version of Zenith Reader is available. Do you want to download it now?',
         buttons: ['Yes', 'No']
     }).then(result => {
-        if (result.response === 0) { // If user clicks "Yes"
-            // Send status message to the frontend to show the progress UI
+        if (result.response === 0) { 
             if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloading' });
             autoUpdater.downloadUpdate();
         }
     });
 });
 
-// 1.5. NEW: Report Download Progress
+// 1.5. Download Progress
 autoUpdater.on('download-progress', (progressObj) => {
     if (mainWindow) {
-        // Send the entire progress object (bytes, percentage, speed) to the renderer
         mainWindow.webContents.send('download-progress', progressObj);
     }
 });
 
-// 2. Update Downloaded - Ask user to restart
+// 2. Update Downloaded
 autoUpdater.on('update-downloaded', () => {
-    // Send status message to the frontend to finalize the progress UI
     if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloaded' });
     
     dialog.showMessageBox({
@@ -85,7 +94,7 @@ autoUpdater.on('update-downloaded', () => {
         message: 'The update has been downloaded. Restart the application to apply the updates.',
         buttons: ['Restart', 'Later']
     }).then(result => {
-        if (result.response === 0) { // If user clicks "Restart"
+        if (result.response === 0) { 
             autoUpdater.quitAndInstall();
         }
     });
@@ -93,7 +102,6 @@ autoUpdater.on('update-downloaded', () => {
 
 // 3. Error Handling
 autoUpdater.on('error', (err) => {
-    // Send status message to the frontend for error display
     if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err.message });
     console.log('Update error: ', err);
 });
