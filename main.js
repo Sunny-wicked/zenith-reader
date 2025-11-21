@@ -31,7 +31,7 @@ function createWindow() {
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
-// --- 1. OPEN DIALOG & READ (For importing new books) ---
+// --- API HANDLERS ---
 ipcMain.handle('open-book-dialog', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openFile'],
@@ -47,7 +47,6 @@ ipcMain.handle('open-book-dialog', async () => {
     };
 });
 
-// --- 2. READ SPECIFIC FILE (For opening from Library) ---
 ipcMain.handle('read-book-file', async (event, filePath) => {
     try {
         return {
@@ -61,17 +60,15 @@ ipcMain.handle('read-book-file', async (event, filePath) => {
     }
 });
 
-// --- 3. DELETE FILE (Permanent Deletion) ---
 ipcMain.handle('delete-book-file', async (event, filePath) => {
     try {
-        fs.unlinkSync(filePath); // Permanently deletes the file
+        fs.unlinkSync(filePath);
         return { success: true };
     } catch (error) {
         return { error: error.message };
     }
 });
 
-// --- FULLSCREEN TOGGLE ---
 ipcMain.handle('toggle-fullscreen', () => {
     if (mainWindow.isFullScreen()) {
         mainWindow.setFullScreen(false);
@@ -96,9 +93,7 @@ autoUpdater.on('update-available', () => {
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
-    if (mainWindow) {
-        mainWindow.webContents.send('download-progress', progressObj);
-    }
+    if (mainWindow) mainWindow.webContents.send('download-progress', progressObj);
 });
 
 autoUpdater.on('update-downloaded', () => {

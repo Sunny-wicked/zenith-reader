@@ -34,31 +34,37 @@
         .btn-primary { background-color: var(--accent); color: var(--bg-main); padding: 0.5rem 1.2rem; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
-        /* Library Grid */
-        .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2rem; padding: 1rem; }
-        .book-card { 
-            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; 
-            overflow: hidden; transition: 0.2s; cursor: pointer; position: relative;
-            display: flex; flex-direction: column; height: 240px;
+        /* Library Grid - INCREASED SIZE FOR VISIBILITY */
+        .book-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Less congested */
+            gap: 3rem; 
+            padding: 2rem; 
+            max-width: 1600px; 
+            margin: 0 auto; 
         }
-        .book-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: var(--accent); }
-        .book-cover { height: 160px; width: 100%; object-fit: cover; background: #eee; }
-        .book-info { padding: 10px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
-        .book-title { font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        .book-actions { display: flex; justify-content: space-between; margin-top: 5px; opacity: 0.6; transition: 0.2s; }
+        .book-card { 
+            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; 
+            overflow: hidden; transition: 0.3s; cursor: pointer; position: relative;
+            display: flex; flex-direction: column; height: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .book-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0,0,0,0.15); border-color: var(--accent); }
+        .book-cover { height: 200px; width: 100%; object-fit: cover; background: #eee; transition: 0.3s; }
+        .book-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .book-title { font-size: 0.95rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+        .book-actions { display: flex; justify-content: space-between; margin-top: 8px; opacity: 0.6; transition: 0.2s; }
         .book-card:hover .book-actions { opacity: 1; }
-        .action-btn { padding: 4px; border-radius: 4px; }
+        .action-btn { padding: 6px; border-radius: 6px; }
         .action-btn:hover { background: rgba(0,0,0,0.1); color: var(--accent); }
         .action-btn.danger:hover { color: #ef4444; }
 
-        /* Dragging */
         .dragging { opacity: 0.5; border: 2px dashed var(--accent); }
 
         /* Views */
         #library-view { height: calc(100vh - 80px); overflow-y: auto; display: none; }
         #viewer-container { width: 100%; height: calc(100vh - 110px); display: none; justify-content: center; align-items: center; position: relative; }
         
-        /* PDF/EPUB Viewers */
         #pdf-viewer-area { display: none; width: 100%; height: 100%; overflow: hidden; justify-content: center; align-items: center; gap: 20px; transition: opacity 0.3s ease-in-out; }
         canvas.pdf-page-canvas { box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 95%; max-width: 48%; object-fit: contain; }
         #epub-viewer-area { width: 100%; height: 100%; }
@@ -66,19 +72,107 @@
         .nav-arrow:hover { color: var(--accent); transform: translateY(-50%) scale(1.1); }
         
         /* Menus */
-        .dropdown-menu { position: absolute; top: 70px; right: 20px; width: 220px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 0.5rem; display: none; z-index: 50; }
+        .dropdown-menu { position: absolute; top: 70px; right: 20px; width: 240px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 0.5rem; display: none; z-index: 50; max-height: 400px; overflow-y: auto; }
         .menu-item { padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
         .menu-item:hover { background-color: rgba(0,0,0,0.05); }
         .theme-circle { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #ccc; }
     </style>
 
     <script>
+        // --- HELPER FUNCTIONS ---
+        function base64ToArrayBuffer(base64) {
+            var binary_string = window.atob(base64);
+            var len = binary_string.length;
+            var bytes = new Uint8Array(len);
+            for (var i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
         // --- GLOBAL STATE ---
         let library = JSON.parse(localStorage.getItem('zenith_library')) || [];
         let currentBook = null, currentRendition = null, pdfDoc = null;
         let pdfPageNum = 1, currentPdfTitle = '';
         let currentReaderType = null;
+        let currentBookId = null; 
         let savedReadingData = { highlights: [], bookmarks: [], lastPosition: null };
+
+        // --- PERSISTENCE ---
+        function loadReadingData(bookPath) {
+            currentBookId = btoa(bookPath); 
+            const storedData = localStorage.getItem(`reading_data_${currentBookId}`);
+            savedReadingData = storedData ? JSON.parse(storedData) : { highlights: [], bookmarks: [], lastPosition: null };
+            renderBookmarkList();
+        }
+
+        function saveReadingData() {
+            if (!currentBookId) return;
+            localStorage.setItem(`reading_data_${currentBookId}`, JSON.stringify(savedReadingData));
+            renderBookmarkList();
+        }
+
+        // --- BOOKMARK LOGIC ---
+        function toggleBookmark() {
+            if (!currentBookId) return;
+            let pos, label;
+            
+            if (currentReaderType === 'epub' && currentRendition) {
+                const location = currentRendition.currentLocation();
+                pos = location.start.cfi;
+                label = `Location ${Math.round(location.start.percentage * 100)}%`;
+            } else if (currentReaderType === 'pdf') {
+                pos = pdfPageNum;
+                label = `Page ${pdfPageNum}`;
+            }
+
+            const idx = savedReadingData.bookmarks.findIndex(b => b.position === pos);
+            if (idx > -1) savedReadingData.bookmarks.splice(idx, 1);
+            else savedReadingData.bookmarks.push({ position: pos, label: label, date: new Date().toLocaleDateString() });
+            
+            saveReadingData();
+            updateBookmarkIcon(idx === -1); 
+        }
+
+        function updateBookmarkIcon(isActive) {
+            const icon = document.getElementById('bookmark-icon');
+            icon.className = isActive ? "ph-fill ph-bookmark-simple" : "ph ph-bookmark-simple";
+            icon.style.color = isActive ? "var(--accent)" : "var(--text-main)";
+        }
+
+        function renderBookmarkList() {
+            const list = document.getElementById('bookmark-list-content');
+            list.innerHTML = '';
+            if (!currentBookId || savedReadingData.bookmarks.length === 0) {
+                list.innerHTML = '<div class="p-4 text-xs opacity-50 text-center">No bookmarks for this book</div>';
+                return;
+            }
+            savedReadingData.bookmarks.forEach((bm, i) => {
+                const el = document.createElement('div');
+                el.className = 'menu-item justify-between group';
+                el.innerHTML = `
+                    <div class="flex flex-col"><span class="font-medium">${bm.label}</span><span class="text-[10px] opacity-60">${bm.date}</span></div>
+                    <i class="ph ph-trash text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 p-1"></i>
+                `;
+                el.onclick = (e) => { 
+                    if(e.target.classList.contains('ph-trash')) {
+                        e.stopPropagation();
+                        savedReadingData.bookmarks.splice(i, 1); 
+                        saveReadingData();
+                        let currentPos = currentReaderType === 'epub' ? currentRendition.currentLocation().start.cfi : pdfPageNum;
+                        if (bm.position === currentPos) updateBookmarkIcon(false);
+                    } else {
+                        jumpTo(bm.position);
+                    }
+                };
+                list.appendChild(el);
+            });
+        }
+
+        function jumpTo(pos) {
+            if (currentReaderType === 'epub') currentRendition.display(pos);
+            else { pdfPageNum = typeof pos === 'number' ? pos : 1; renderPdfSpread(); }
+        }
 
         // --- LIBRARY LOGIC ---
         function saveLibrary() {
@@ -87,17 +181,8 @@
         }
 
         function addToLibrary(path, title, type, coverData) {
-            // Check duplicates
             if (library.some(b => b.path === path)) return;
-            
-            const newBook = {
-                id: Date.now(),
-                path: path,
-                title: title || "Untitled Book",
-                type: type,
-                cover: coverData || null, // Base64 string
-                favorite: false
-            };
+            const newBook = { id: Date.now(), path: path, title: title || "Untitled Book", type: type, cover: coverData || null, favorite: false };
             library.push(newBook);
             saveLibrary();
         }
@@ -105,12 +190,9 @@
         function deleteBook(id, fromDisk) {
             const book = library.find(b => b.id === id);
             if (!book) return;
-
             if (confirm(fromDisk ? "Delete permanently from your computer?" : "Remove from Library?")) {
                 if (fromDisk) {
-                    window.electronAPI.deleteBookFile(book.path).then(res => {
-                        if (res.error) alert("Error deleting file: " + res.error);
-                    });
+                    window.electronAPI.deleteBookFile(book.path).then(res => { if (res.error) alert("Error deleting file: " + res.error); });
                 }
                 library = library.filter(b => b.id !== id);
                 saveLibrary();
@@ -120,60 +202,30 @@
         function toggleFavorite(id, event) {
             event.stopPropagation();
             const book = library.find(b => b.id === id);
-            if (book) {
-                book.favorite = !book.favorite;
-                saveLibrary();
-            }
-        }
-
-        function reorderLibrary(fromIndex, toIndex) {
-            const item = library.splice(fromIndex, 1)[0];
-            library.splice(toIndex, 0, item);
-            saveLibrary();
+            if (book) { book.favorite = !book.favorite; saveLibrary(); }
         }
 
         function renderLibrary() {
             const favContainer = document.getElementById('favorites-grid');
             const allContainer = document.getElementById('all-books-grid');
             const favSection = document.getElementById('favorites-section');
-            
             favContainer.innerHTML = '';
             allContainer.innerHTML = '';
-
             const favorites = library.filter(b => b.favorite);
             
             if (favorites.length > 0) {
                 favSection.style.display = 'block';
-                favorites.forEach((book, idx) => favContainer.appendChild(createBookCard(book, idx, true)));
+                favorites.forEach((book, idx) => favContainer.appendChild(createBookCard(book, idx)));
             } else {
                 favSection.style.display = 'none';
             }
-
-            library.forEach((book, idx) => {
-                allContainer.appendChild(createBookCard(book, idx, false));
-            });
+            library.forEach((book, idx) => allContainer.appendChild(createBookCard(book, idx)));
         }
 
-        function createBookCard(book, index, isFavGrid) {
+        function createBookCard(book, index) {
             const card = document.createElement('div');
             card.className = 'book-card';
-            card.draggable = true; // Enable Dragging
-            card.dataset.index = index; // Store index for reordering
-
-            // Drag Events
-            card.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', index); card.classList.add('dragging'); });
-            card.addEventListener('dragend', () => card.classList.remove('dragging'));
-            card.addEventListener('dragover', e => e.preventDefault()); // Allow dropping
-            card.addEventListener('drop', e => {
-                e.preventDefault();
-                const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
-                // Only allow reordering within the main grid for consistency
-                if (!isFavGrid) reorderLibrary(fromIdx, index);
-            });
-
-            // Card Content
             const coverSrc = book.cover ? book.cover : 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTUwIiB2aWV3Qm94PSIwIDAgMTAwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNkZGQiLz48dGV4dCB4PSI1MCIgeT0iNzUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0Ij5Cb29rPC90ZXh0Pjwvc3ZnPg==';
-            
             card.innerHTML = `
                 <img src="${coverSrc}" class="book-cover">
                 <div class="book-info">
@@ -187,48 +239,45 @@
                     </div>
                 </div>
             `;
-            
             card.onclick = () => openBookFromLibrary(book);
             return card;
         }
 
         // --- VIEWER LOGIC ---
         async function openBookFromLibrary(book) {
-            showReaderView();
-            document.getElementById('book-title').textContent = "Loading...";
-            
             const result = await window.electronAPI.readBookFile(book.path);
-            
-            if (result.error) {
-                alert("Could not load book. It may have been moved or deleted.");
-                return;
-            }
-
-            if (book.type === 'epub') loadEpub(result, btoa(book.path));
-            else loadPdf(result, btoa(book.path));
+            if (result.error) { alert("Could not load book. It may have been moved or deleted."); return; }
+            showReaderView();
+            loadReadingData(book.path); 
+            if (book.type === 'epub') loadEpub(result);
+            else loadPdf(result);
         }
 
         async function importBook() {
             const result = await window.electronAPI.openBookDialog();
             if (result.canceled) return;
 
-            // Generate Cover and Add to Library
             let coverData = null;
-            let title = result.filePath.split(/[\\/]/).pop(); // Default title is filename
+            let title = result.filePath.split(/[\\/]/).pop(); 
 
             if (result.fileExtension === 'epub') {
-                const book = ePub('data:application/epub+zip;base64,' + result.fileData);
+                // FIX: Use ArrayBuffer to avoid file:/// errors
+                const bookData = base64ToArrayBuffer(result.fileData);
+                const book = ePub(bookData);
+                
                 await book.ready;
                 const meta = await book.loaded.metadata;
                 title = meta.title || title;
-                const coverUrl = await book.coverUrl();
-                if (coverUrl) {
-                    // Convert blob URL to base64 for storage
-                    const blob = await fetch(coverUrl).then(r => r.blob());
-                    coverData = await new Promise(r => { let a=new FileReader(); a.onload=()=>r(a.result); a.readAsDataURL(blob); });
-                }
-                // Load viewer immediately
-                loadEpub(result, btoa(result.filePath));
+
+                try {
+                    const coverUrl = await book.coverUrl();
+                    if (coverUrl) {
+                        const blob = await fetch(coverUrl).then(r => r.blob());
+                        coverData = await new Promise(r => { let a=new FileReader(); a.onload=()=>r(a.result); a.readAsDataURL(blob); });
+                    }
+                } catch(e) { console.warn("Cover extraction skipped", e); }
+                
+                loadEpub(result);
             } 
             else if (result.fileExtension === 'pdf') {
                 const loadingTask = pdfjsLib.getDocument({ data: atob(result.fileData) });
@@ -236,59 +285,67 @@
                 const meta = await pdf.getMetadata();
                 if (meta.info.Title) title = meta.info.Title;
                 
-                // Render page 1 thumbnail
                 const page = await pdf.getPage(1);
-                const viewport = page.getViewport({ scale: 0.5 }); // Small scale for thumbnail
+                const viewport = page.getViewport({ scale: 0.5 }); 
                 const canvas = document.createElement('canvas');
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
                 coverData = canvas.toDataURL();
                 
-                // Load viewer
-                loadPdf(result, btoa(result.filePath));
+                loadPdf(result);
             }
 
             addToLibrary(result.filePath, title, result.fileExtension, coverData);
             showReaderView();
+            loadReadingData(result.filePath); 
         }
 
         // --- VIEW SWITCHING ---
         function showLibraryView() {
             document.getElementById('library-view').style.display = 'block';
             document.getElementById('viewer-container').style.display = 'none';
-            document.getElementById('home-btn').style.display = 'none'; // Hide Home button on Home screen
-            document.getElementById('import-btn').style.display = 'block'; // Show Import button
+            document.getElementById('home-btn').style.display = 'none'; 
+            document.getElementById('import-btn').style.display = 'flex'; 
+            document.getElementById('bookmark-btn').style.display = 'none';
+            document.getElementById('list-btn').style.display = 'none';
             renderLibrary();
         }
 
         function showReaderView() {
             document.getElementById('library-view').style.display = 'none';
             document.getElementById('viewer-container').style.display = 'flex';
-            document.getElementById('home-btn').style.display = 'block'; // Show Home button
-            document.getElementById('import-btn').style.display = 'none'; // Hide Import button
+            document.getElementById('home-btn').style.display = 'block'; 
+            document.getElementById('import-btn').style.display = 'none'; 
+            document.getElementById('bookmark-btn').style.display = 'block';
+            document.getElementById('list-btn').style.display = 'block';
         }
 
-        // --- EXISTING LOADER LOGIC (Kept mostly same, just adapted) ---
-        function loadEpub(data, hash) {
+        // --- LOADERS ---
+        function loadEpub(data) {
             if (currentBook) currentBook.destroy();
-            currentBook = ePub('data:application/epub+zip;base64,' + data.fileData);
+            
+            // FIX: Convert base64 to ArrayBuffer for ePub.js
+            const bookData = base64ToArrayBuffer(data.fileData);
+            currentBook = ePub(bookData);
+            
             document.getElementById('epub-viewer-area').style.display = 'block';
             document.getElementById('pdf-viewer-area').style.display = 'none';
             currentReaderType = 'epub';
 
             currentBook.loaded.metadata.then(meta => {
                 document.getElementById('book-title').textContent = meta.title || 'EPUB';
-                loadReadingData('epub-' + hash);
+                
                 currentRendition = currentBook.renderTo('epub-viewer-area', { width: "100%", height: "100%", flow: "paginated", spread: "always", minSpreadWidth: 1200, transition: 'slide' });
                 
                 const savedTheme = localStorage.getItem('appTheme') || 'light';
-                applyTheme(savedTheme); // Ensure theme is applied
+                applyTheme(savedTheme);
                 currentRendition.display(savedReadingData.lastPosition || undefined);
 
                 currentRendition.on('locationChanged', (loc) => {
                     savedReadingData.lastPosition = loc.start.cfi;
                     saveReadingData();
+                    updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === loc.start.cfi));
                 });
                 
                 currentRendition.hooks.content.register((contents) => {
@@ -302,7 +359,7 @@
             });
         }
 
-        async function loadPdf(data, hash) {
+        async function loadPdf(data) {
             currentReaderType = 'pdf';
             document.getElementById('epub-viewer-area').style.display = 'none';
             document.getElementById('pdf-viewer-area').style.display = 'flex';
@@ -314,7 +371,6 @@
             let pdfTitle = (metadata.info && metadata.info.Title) ? metadata.info.Title : 'PDF Document';
             document.getElementById('book-title').textContent = pdfTitle;
 
-            loadReadingData('pdf-' + hash);
             pdfPageNum = savedReadingData.lastPosition || 1;
             if(pdfPageNum % 2 === 0) pdfPageNum--; 
             
@@ -342,20 +398,10 @@
 
             area.style.opacity = '1';
             savedReadingData.lastPosition = pdfPageNum; saveReadingData();
+            updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === pdfPageNum));
         }
 
-        // --- HELPER: PERSISTENCE ---
-        function loadReadingData(bookId) {
-            currentBookId = bookId; 
-            const storedData = localStorage.getItem(`reading_data_${bookId}`);
-            savedReadingData = storedData ? JSON.parse(storedData) : { highlights: [], bookmarks: [], lastPosition: null };
-        }
-        function saveReadingData() {
-            if (!currentBookId) return;
-            localStorage.setItem(`reading_data_${currentBookId}`, JSON.stringify(savedReadingData));
-        }
-
-        // --- THEMES (Simplified for brevity, same as before) ---
+        // --- THEMES ---
         const themes = {
             light: { bg: '#f8f9fa', color: '#2d3436' },
             sepia: { bg: '#f4ecd8', color: '#5b4636' },
@@ -380,24 +426,16 @@
             document.getElementById('theme-menu').style.display = 'none';
         }
 
-        // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
             applyTheme(localStorage.getItem('appTheme') || 'light');
-            
-            // Initialize in Library View
             showLibraryView();
-
-            // Event Listeners
-            document.getElementById('import-btn').onclick = importBook; // "Open Book" functionality
-            
-            // Home Button Logic (Back to Library)
+            document.getElementById('import-btn').onclick = importBook;
             document.getElementById('home-btn').onclick = () => {
                 showLibraryView();
                 if (currentBook) { currentBook.destroy(); currentBook = null; }
+                currentBookId = null;
                 document.getElementById('book-title').textContent = "Zenith Library";
             };
-
-            // Fullscreen Logic
             const fullscreenBtn = document.getElementById('fullscreen-btn');
             const fullscreenIcon = document.getElementById('fullscreen-icon');
             let isFullscreen = false;
@@ -408,8 +446,6 @@
                     fullscreenIcon.className = isFullscreen ? 'ph ph-corners-in text-xl' : 'ph ph-corners-out text-xl';
                 }
             };
-
-            // Navigation Buttons
             document.getElementById('prev-btn').onclick = () => {
                 if(currentReaderType === 'epub' && currentRendition) currentRendition.prev();
                 else if(pdfPageNum > 1) { pdfPageNum -= 2; renderPdfSpread(); }
@@ -418,22 +454,62 @@
                 if(currentReaderType === 'epub' && currentRendition) currentRendition.next();
                 else if(pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum += 2; renderPdfSpread(); }
             };
-
-            // Keyboard
             document.addEventListener('keydown', (e) => {
-                if (document.getElementById('library-view').style.display !== 'none') return; // Don't nav in library
+                if (document.getElementById('library-view').style.display !== 'none') return; 
                 if (e.key === "ArrowLeft") document.getElementById('prev-btn').click();
                 else if (e.key === "ArrowRight") document.getElementById('next-btn').click();
-                else if (e.key === "Escape") {
-                    if (isFullscreen) fullscreenBtn.click();
-                }
+                else if (e.key === "Escape") { if (isFullscreen) fullscreenBtn.click(); }
             });
-
-            // Menus
-            document.getElementById('theme-btn').onclick = (e) => { e.stopPropagation(); document.getElementById('theme-menu').style.display = 'block'; };
-            document.onclick = (e) => {
-                if (!e.target.closest('#theme-btn')) document.getElementById('theme-menu').style.display = 'none';
+            const themeMenu = document.getElementById('theme-menu');
+            const bookmarkMenu = document.getElementById('bookmark-menu');
+            document.getElementById('theme-btn').onclick = (e) => { 
+                e.stopPropagation(); 
+                themeMenu.style.display = themeMenu.style.display === 'block' ? 'none' : 'block';
+                bookmarkMenu.style.display = 'none';
             };
+            document.getElementById('list-btn').onclick = (e) => {
+                e.stopPropagation();
+                bookmarkMenu.style.display = bookmarkMenu.style.display === 'block' ? 'none' : 'block';
+                themeMenu.style.display = 'none';
+            };
+            document.getElementById('bookmark-btn').onclick = toggleBookmark;
+            document.onclick = () => {
+                themeMenu.style.display = 'none';
+                bookmarkMenu.style.display = 'none';
+            };
+            // Auto Updater UI
+            const progressContainer = document.getElementById('download-progress-status');
+            const progressBar = document.getElementById('download-bar');
+            const progressMessage = document.getElementById('download-message');
+            const progressDetails = document.getElementById('download-details');
+            if (window.electronAPI && window.electronAPI.ipcRenderer) {
+                window.electronAPI.ipcRenderer.on('update-status', (event, data) => {
+                    if (data.status === 'downloading') {
+                        progressContainer.style.display = 'flex';
+                        progressMessage.textContent = 'Downloading Update...';
+                        progressBar.style.width = '0%';
+                        progressDetails.textContent = '0%';
+                    } else if (data.status === 'downloaded') {
+                        progressMessage.textContent = 'Download Complete! Preparing to install...';
+                        progressBar.style.width = '100%';
+                        progressDetails.textContent = '100% - Restarting soon.';
+                        setTimeout(() => progressContainer.style.display = 'none', 3000); 
+                    } else if (data.status === 'error') {
+                        progressMessage.textContent = `Update Error!`;
+                        progressContainer.style.display = 'flex';
+                        progressBar.style.width = '0%';
+                        progressDetails.textContent = `Download failed: ${data.message}. Please restart the app.`;
+                    }
+                });
+                window.electronAPI.ipcRenderer.on('download-progress', (event, progressObj) => {
+                    const percent = Math.floor(progressObj.percent);
+                    const bytesPerSecond = (progressObj.bytesPerSecond / (1024 * 1024)).toFixed(2);
+                    const transferred = (progressObj.transferred / (1024 * 1024)).toFixed(2);
+                    const total = (progressObj.total / (1024 * 1024)).toFixed(2);
+                    progressBar.style.width = `${percent}%`;
+                    progressDetails.textContent = `${percent}% (${transferred} MB of ${total} MB) @ ${bytesPerSecond} MB/s`;
+                });
+            }
         });
     </script>
 </head>
@@ -441,27 +517,26 @@
     <div id="app" class="flex flex-col h-screen">
         <header class="glass-panel h-16 px-6 flex justify-between items-center z-30 relative shadow-sm">
             <div class="flex items-center space-x-4">
-                <!-- NEW: Home Button (Back to Library) -->
                 <button id="home-btn" class="btn-icon" title="Library" style="display: none;">
                     <i class="ph-bold ph-house text-xl"></i>
                 </button>
-                
-                <button id="import-btn" class="btn-primary flex items-center gap-2">
+                <button id="import-btn" class="btn-primary flex items-center gap-2" style="display: flex;">
                     <i class="ph-bold ph-plus"></i> Add Book
                 </button>
-                
                 <h1 id="book-title" class="text-lg font-semibold opacity-80 truncate max-w-md select-none">Zenith Library</h1>
             </div>
-            
             <div class="flex items-center space-x-2">
+                <div id="bookmark-btn" class="btn-icon" title="Bookmark Page" style="display: none;"><i id="bookmark-icon" class="ph ph-bookmark-simple text-xl"></i></div>
+                <div id="list-btn" class="btn-icon" title="Saved Bookmarks" style="display: none;"><i class="ph ph-list text-xl"></i></div>
                 <div id="fullscreen-btn" class="btn-icon" title="Toggle Fullscreen"><i id="fullscreen-icon" class="ph ph-corners-out text-xl"></i></div>
                 <div id="theme-btn" class="btn-icon" title="Themes"><i class="ph ph-palette text-xl"></i></div>
             </div>
 
-            <!-- Download Progress Overlay (Kept from v1.0.4) -->
+            <!-- Download Progress Overlay -->
             <div id="download-progress-status" class="absolute w-full h-full top-0 left-0 bg-gray-900/90 text-white flex flex-col items-center justify-center p-4 z-40 transition-opacity duration-500" style="display: none;">
                 <span id="download-message" class="text-xl font-semibold mb-3">Downloading...</span>
                 <div class="w-1/3 bg-gray-700 rounded-full h-3 mb-2"><div id="download-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div></div>
+                <span id="download-details" class="text-sm opacity-70">0% (0 MB of 0 MB) @ 0.00 MB/s</span>
             </div>
 
             <div id="theme-menu" class="dropdown-menu">
@@ -469,7 +544,16 @@
                 <div class="menu-item" onclick="applyTheme('light')"><div class="theme-circle" style="background:#f8f9fa"></div> Light</div>
                 <div class="menu-item" onclick="applyTheme('sepia')"><div class="theme-circle" style="background:#f4ecd8"></div> Sepia</div>
                 <div class="menu-item" onclick="applyTheme('dark')"><div class="theme-circle" style="background:#1e1e1e"></div> Night</div>
+                <div class="menu-item" onclick="applyTheme('midnight')"><div class="theme-circle" style="background:#0f172a"></div> Midnight</div>
+                <div class="menu-item" onclick="applyTheme('forest')"><div class="theme-circle" style="background:#1a2f23"></div> Forest</div>
+                <div class="menu-item" onclick="applyTheme('romantic')"><div class="theme-circle" style="background:#ffe5ec; border: 1px solid #ff006e;"></div> Romantic</div>
+                <div class="menu-item" onclick="applyTheme('tech')"><div class="theme-circle" style="background:#0A192F; border: 1px solid #64FFDA;"></div> Tech</div>
                 <div class="menu-item" onclick="applyTheme('ocean-blue')"><div class="theme-circle" style="background:#E0F7FA; border: 1px solid #00BCD4;"></div> Ocean Blue</div>
+            </div>
+
+            <div id="bookmark-menu" class="dropdown-menu">
+                <div class="p-2 text-xs font-bold opacity-50 uppercase">Saved Bookmarks</div>
+                <div id="bookmark-list-content"></div>
             </div>
         </header>
 
@@ -480,7 +564,6 @@
                 <div id="favorites-grid" class="book-grid mb-8"></div>
                 <hr class="border-border mb-8">
             </div>
-            
             <h2 class="text-xl font-bold mb-4 opacity-80"><i class="ph-bold ph-books mr-2"></i>All Books</h2>
             <div id="all-books-grid" class="book-grid"></div>
         </div>
