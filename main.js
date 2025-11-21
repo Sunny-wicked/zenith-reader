@@ -3,19 +3,16 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs'); 
 
-// Store mainWindow globally so autoUpdater events can access it
 let mainWindow; 
 
-// --- AUTO UPDATER CONFIGURATION ---
 autoUpdater.autoDownload = false; 
 autoUpdater.autoInstallOnAppQuit = true;
 
 function createWindow() {
-    // Assign to the global variable
     mainWindow = new BrowserWindow({
         width: 1200, 
         height: 800,
-        show: false, // HIDE initially to prevent visual resizing flicker
+        show: false,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'), 
             contextIsolation: true, 
@@ -24,10 +21,9 @@ function createWindow() {
     });
     mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
-    // Check for updates once the window is ready
     mainWindow.once('ready-to-show', () => {
-        mainWindow.maximize(); // Maximize to user's screen size
-        mainWindow.show();     // Show the window now that it is ready
+        mainWindow.maximize();
+        mainWindow.show();
         autoUpdater.checkForUpdatesAndNotify();
     });
 }
@@ -35,8 +31,8 @@ function createWindow() {
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
-// --- FILE OPENING LOGIC ---
-ipcMain.handle('open-book-file', async () => {
+// --- 1. OPEN DIALOG & READ (For importing new books) ---
+ipcMain.handle('open-book-dialog', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openFile'],
         filters: [{ name: 'Books', extensions: ['epub', 'pdf'] }]
@@ -51,7 +47,31 @@ ipcMain.handle('open-book-file', async () => {
     };
 });
 
-// --- FULLSCREEN TOGGLE LOGIC ---
+// --- 2. READ SPECIFIC FILE (For opening from Library) ---
+ipcMain.handle('read-book-file', async (event, filePath) => {
+    try {
+        return {
+            filePath,
+            fileExtension: path.extname(filePath).toLowerCase().substring(1),
+            fileData: fs.readFileSync(filePath).toString('base64')
+        };
+    } catch (error) {
+        console.error("Error reading file:", error);
+        return { error: "File not found or unreadable" };
+    }
+});
+
+// --- 3. DELETE FILE (Permanent Deletion) ---
+ipcMain.handle('delete-book-file', async (event, filePath) => {
+    try {
+        fs.unlinkSync(filePath); // Permanently deletes the file
+        return { success: true };
+    } catch (error) {
+        return { error: error.message };
+    }
+});
+
+// --- FULLSCREEN TOGGLE ---
 ipcMain.handle('toggle-fullscreen', () => {
     if (mainWindow.isFullScreen()) {
         mainWindow.setFullScreen(false);
@@ -60,9 +80,7 @@ ipcMain.handle('toggle-fullscreen', () => {
     }
 });
 
-// --- AUTO UPDATER EVENTS ---
-
-// 1. Update Available
+// --- AUTO UPDATER ---
 autoUpdater.on('update-available', () => {
     dialog.showMessageBox({
         type: 'info',
@@ -77,31 +95,24 @@ autoUpdater.on('update-available', () => {
     });
 });
 
-// 1.5. Download Progress
 autoUpdater.on('download-progress', (progressObj) => {
     if (mainWindow) {
         mainWindow.webContents.send('download-progress', progressObj);
     }
 });
 
-// 2. Update Downloaded
 autoUpdater.on('update-downloaded', () => {
     if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloaded' });
-    
     dialog.showMessageBox({
         type: 'info',
         title: 'Update Ready',
-        message: 'The update has been downloaded. Restart the application to apply the updates.',
+        message: 'Update downloaded. Restart now?',
         buttons: ['Restart', 'Later']
     }).then(result => {
-        if (result.response === 0) { 
-            autoUpdater.quitAndInstall();
-        }
+        if (result.response === 0) autoUpdater.quitAndInstall();
     });
 });
 
-// 3. Error Handling
 autoUpdater.on('error', (err) => {
     if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err.message });
-    console.log('Update error: ', err);
 });

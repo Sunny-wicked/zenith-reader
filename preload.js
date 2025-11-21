@@ -1,13 +1,17 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// --- Electron API Bridge ---
 contextBridge.exposeInMainWorld('electronAPI', {
-    openBookFile: () => ipcRenderer.invoke('open-book-file'),
+    // Opens dialog and reads file (Import)
+    openBookDialog: () => ipcRenderer.invoke('open-book-dialog'),
     
-    // NEW: Expose the toggle fullscreen function
+    // Reads a file from a known path (Open from Library)
+    readBookFile: (path) => ipcRenderer.invoke('read-book-file', path),
+    
+    // Deletes file from disk
+    deleteBookFile: (path) => ipcRenderer.invoke('delete-book-file', path),
+    
     toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
     
-    // Listener for renderer process events (updates)
     ipcRenderer: {
         on: (channel, callback) => ipcRenderer.on(channel, callback)
     }
