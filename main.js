@@ -5,7 +5,8 @@ const fs = require('fs');
 
 let mainWindow; 
 
-autoUpdater.autoDownload = false; 
+// --- AUTO UPDATER CONFIGURATION ---
+autoUpdater.autoDownload = false; // Important: We manually trigger download now
 autoUpdater.autoInstallOnAppQuit = true;
 
 function createWindow() {
@@ -24,6 +25,7 @@ function createWindow() {
     mainWindow.once('ready-to-show', () => {
         mainWindow.maximize();
         mainWindow.show();
+        // Check for updates as soon as the window is ready
         autoUpdater.checkForUpdatesAndNotify();
     });
 }
@@ -31,7 +33,7 @@ function createWindow() {
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
-// --- API HANDLERS ---
+// --- FILE OPENING LOGIC ---
 ipcMain.handle('open-book-dialog', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openFile'],
@@ -77,37 +79,55 @@ ipcMain.handle('toggle-fullscreen', () => {
     }
 });
 
-// --- AUTO UPDATER ---
-autoUpdater.on('update-available', () => {
-    dialog.showMessageBox({
-        type: 'info',
-        title: 'Update Available',
-        message: 'A new version of Zenith Reader is available. Do you want to download it now?',
-        buttons: ['Yes', 'No']
-    }).then(result => {
-        if (result.response === 0) { 
-            if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloading' });
-            autoUpdater.downloadUpdate();
-        }
-    });
+// --- NEW UPDATE HANDLERS ---
+
+// 1. Start Download (Triggered by "Yes" button in UI)
+ipcMain.handle('start-download', () => {
+    autoUpdater.downloadUpdate();
 });
 
+// 2. Quit and Install (Triggered by "Restart" button in UI)
+ipcMain.handle('quit-and-install', () => {
+    autoUpdater.quitAndInstall();
+});
+
+// --- AUTO UPDATER EVENTS ---
+
+// Event 1: Update Found - Send info to UI (Don't download yet)
+autoUpdater.on('update-available', (info) => {
+    // Calculate size (in MB) from the files array if available
+    let totalSize = 0;
+    if (info.files && info.files.length > 0) {
+        totalSize = info.files.reduce((acc, file) => acc + file.size, 0);
+    }
+    
+    if (mainWindow) {
+        mainWindow.webContents.send('update-available', {
+            version: info.version,
+            size: totalSize, // Size in bytes
+            releaseNotes: info.releaseNotes
+        });
+    }
+});
+
+// Event 2: Download Progress - Send percentage to UI
 autoUpdater.on('download-progress', (progressObj) => {
-    if (mainWindow) mainWindow.webContents.send('download-progress', progressObj);
+    if (mainWindow) {
+        mainWindow.webContents.send('download-progress', progressObj);
+    }
 });
 
+// Event 3: Update Ready - Tell UI to show "Restart" button
 autoUpdater.on('update-downloaded', () => {
-    if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloaded' });
-    dialog.showMessageBox({
-        type: 'info',
-        title: 'Update Ready',
-        message: 'Update downloaded. Restart now?',
-        buttons: ['Restart', 'Later']
-    }).then(result => {
-        if (result.response === 0) autoUpdater.quitAndInstall();
-    });
+    if (mainWindow) {
+        mainWindow.webContents.send('update-downloaded');
+    }
 });
 
+// Event 4: Error
 autoUpdater.on('error', (err) => {
-    if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err.message });
+    console.error('Update error:', err);
+    if (mainWindow) {
+        mainWindow.webContents.send('update-error', err.message);
+    }
 });

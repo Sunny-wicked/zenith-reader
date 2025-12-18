@@ -8,13 +8,14 @@
     <title>Zenith Reader</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Libraries -->
     <script src="../node_modules/jszip/dist/jszip.min.js"></script>
     <script src="../node_modules/epubjs/dist/epub.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <style>
-        /* --- THEMES --- */
+        /* THEMES */
         :root { --bg-main: #f8f9fa; --bg-panel: rgba(255, 255, 255, 0.95); --text-main: #2d3436; --accent: #6c5ce7; --border: #e2e8f0; }
         body.sepia { --bg-main: #f4ecd8; --bg-panel: rgba(244, 236, 216, 0.95); --text-main: #5b4636; --accent: #d35400; --border: #e0d6c2; }
         body.dark { --bg-main: #1e1e1e; --bg-panel: rgba(40, 40, 40, 0.95); --text-main: #dfe6e9; --accent: #a29bfe; --border: #444; }
@@ -26,7 +27,6 @@
 
         body { background-color: var(--bg-main); color: var(--text-main); transition: 0.3s; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
-        /* UI Components */
         .glass-panel { background: var(--bg-panel); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
         .glass-footer { background: var(--bg-panel); backdrop-filter: blur(12px); border-top: 1px solid var(--border); }
         .btn-icon { padding: 8px; border-radius: 8px; cursor: pointer; color: var(--text-main); transition: 0.2s; }
@@ -34,44 +34,30 @@
         .btn-primary { background-color: var(--accent); color: var(--bg-main); padding: 0.5rem 1.2rem; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
-        /* Library Grid - INCREASED SIZE FOR VISIBILITY */
-        .book-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Less congested */
-            gap: 3rem; 
-            padding: 2rem; 
-            max-width: 1600px; 
-            margin: 0 auto; 
-        }
-        .book-card { 
-            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; 
-            overflow: hidden; transition: 0.3s; cursor: pointer; position: relative;
-            display: flex; flex-direction: column; height: 300px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
+        /* Grid */
+        .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 3rem; padding: 2rem; max-width: 1600px; margin: 0 auto; }
+        .book-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; transition: 0.3s; cursor: pointer; position: relative; display: flex; flex-direction: column; height: 300px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .book-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(0,0,0,0.15); border-color: var(--accent); }
         .book-cover { height: 200px; width: 100%; object-fit: cover; background: #eee; transition: 0.3s; }
         .book-info { padding: 12px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
         .book-title { font-size: 0.95rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
         .book-actions { display: flex; justify-content: space-between; margin-top: 8px; opacity: 0.6; transition: 0.2s; }
         .book-card:hover .book-actions { opacity: 1; }
-        .action-btn { padding: 6px; border-radius: 6px; }
-        .action-btn:hover { background: rgba(0,0,0,0.1); color: var(--accent); }
-        .action-btn.danger:hover { color: #ef4444; }
+        
+        /* Modals */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .modal-card { background: var(--bg-panel); padding: 2rem; border-radius: 12px; width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid var(--border); text-align: center; }
+        .progress-track { width: 100%; height: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; margin: 1rem 0; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
 
-        .dragging { opacity: 0.5; border: 2px dashed var(--accent); }
-
-        /* Views */
+        /* Viewer & Layout */
         #library-view { height: calc(100vh - 80px); overflow-y: auto; display: none; }
         #viewer-container { width: 100%; height: calc(100vh - 110px); display: none; justify-content: center; align-items: center; position: relative; }
-        
-        #pdf-viewer-area { display: none; width: 100%; height: 100%; overflow: hidden; justify-content: center; align-items: center; gap: 20px; transition: opacity 0.3s ease-in-out; }
+        #pdf-viewer-area, #epub-viewer-area { width: 100%; height: 100%; }
+        #pdf-viewer-area { display: none; overflow: hidden; justify-content: center; align-items: center; gap: 20px; transition: opacity 0.3s ease-in-out; }
         canvas.pdf-page-canvas { box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 95%; max-width: 48%; object-fit: contain; }
-        #epub-viewer-area { width: 100%; height: 100%; }
         .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 20; background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-main); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: 0.2s; }
         .nav-arrow:hover { color: var(--accent); transform: translateY(-50%) scale(1.1); }
-        
-        /* Menus */
         .dropdown-menu { position: absolute; top: 70px; right: 20px; width: 240px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); padding: 0.5rem; display: none; z-index: 50; max-height: 400px; overflow-y: auto; }
         .menu-item { padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
         .menu-item:hover { background-color: rgba(0,0,0,0.05); }
@@ -84,62 +70,127 @@
             var binary_string = window.atob(base64);
             var len = binary_string.length;
             var bytes = new Uint8Array(len);
-            for (var i = 0; i < len; i++) {
-                bytes[i] = binary_string.charCodeAt(i);
-            }
+            for (var i = 0; i < len; i++) { bytes[i] = binary_string.charCodeAt(i); }
             return bytes.buffer;
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024, dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
         }
 
         // --- GLOBAL STATE ---
         let library = JSON.parse(localStorage.getItem('zenith_library')) || [];
         let currentBook = null, currentRendition = null, pdfDoc = null;
-        let pdfPageNum = 1, currentPdfTitle = '';
-        let currentReaderType = null;
-        let currentBookId = null; 
+        let pdfPageNum = 1, currentReaderType = null, currentBookId = null; 
         let savedReadingData = { highlights: [], bookmarks: [], lastPosition: null };
 
-        // --- PERSISTENCE ---
+        // --- UPDATE LOGIC ---
+        function setupUpdateListeners() {
+            if (!window.electronAPI) return;
+
+            const modal = document.getElementById('update-modal');
+            const title = document.getElementById('update-title');
+            const desc = document.getElementById('update-desc');
+            const size = document.getElementById('update-size');
+            const btnContainer = document.getElementById('update-btns');
+            const downloadBtn = document.getElementById('btn-download');
+            const cancelBtn = document.getElementById('btn-cancel');
+            const progressBar = document.getElementById('update-progress-bar');
+            const progressFill = document.getElementById('update-progress-fill');
+            const progressText = document.getElementById('update-progress-text');
+
+            // 1. Update Available
+            window.electronAPI.ipcRenderer.on('update-available', (event, info) => {
+                modal.style.display = 'flex';
+                title.textContent = `Version ${info.version} Available!`;
+                size.textContent = `Size: ${formatBytes(info.size)}`;
+                desc.textContent = "A new version of Zenith Reader is ready.";
+                
+                // Reset state
+                btnContainer.style.display = 'flex';
+                progressBar.style.display = 'none';
+                progressText.textContent = "";
+                downloadBtn.style.display = 'block';
+                downloadBtn.textContent = 'Download Update';
+                // Remove old listeners to avoid duplicates
+                const newBtn = downloadBtn.cloneNode(true);
+                downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
+                
+                newBtn.onclick = () => {
+                    // Start Download
+                    window.electronAPI.startDownload();
+                    btnContainer.style.display = 'none'; // Hide buttons
+                    progressBar.style.display = 'block'; // Show bar
+                    progressText.textContent = "Starting download...";
+                };
+            });
+
+            // 2. Download Progress
+            window.electronAPI.ipcRenderer.on('download-progress', (event, progressObj) => {
+                const percent = Math.floor(progressObj.percent);
+                progressFill.style.width = `${percent}%`;
+                progressText.textContent = `${percent}% - ${formatBytes(progressObj.transferred)} / ${formatBytes(progressObj.total)}`;
+            });
+
+            // 3. Update Downloaded
+            window.electronAPI.ipcRenderer.on('update-downloaded', () => {
+                progressFill.style.width = '100%';
+                progressText.textContent = "Download Complete!";
+                btnContainer.style.display = 'flex';
+                
+                const restartBtn = document.getElementById('btn-download'); // Reuse button
+                restartBtn.textContent = "Restart & Install";
+                restartBtn.style.display = 'block';
+                document.getElementById('btn-cancel').textContent = "Later";
+                
+                restartBtn.onclick = () => {
+                    window.electronAPI.quitAndInstall();
+                };
+            });
+
+            // Cancel Button
+            cancelBtn.onclick = () => {
+                modal.style.display = 'none';
+            };
+        }
+
+        // --- BOOK LOGIC (Existing) ---
         function loadReadingData(bookPath) {
             currentBookId = btoa(bookPath); 
             const storedData = localStorage.getItem(`reading_data_${currentBookId}`);
             savedReadingData = storedData ? JSON.parse(storedData) : { highlights: [], bookmarks: [], lastPosition: null };
             renderBookmarkList();
         }
-
         function saveReadingData() {
             if (!currentBookId) return;
             localStorage.setItem(`reading_data_${currentBookId}`, JSON.stringify(savedReadingData));
             renderBookmarkList();
         }
-
-        // --- BOOKMARK LOGIC ---
         function toggleBookmark() {
             if (!currentBookId) return;
             let pos, label;
-            
             if (currentReaderType === 'epub' && currentRendition) {
                 const location = currentRendition.currentLocation();
                 pos = location.start.cfi;
                 label = `Location ${Math.round(location.start.percentage * 100)}%`;
             } else if (currentReaderType === 'pdf') {
-                pos = pdfPageNum;
-                label = `Page ${pdfPageNum}`;
+                pos = pdfPageNum; label = `Page ${pdfPageNum}`;
             }
-
             const idx = savedReadingData.bookmarks.findIndex(b => b.position === pos);
             if (idx > -1) savedReadingData.bookmarks.splice(idx, 1);
             else savedReadingData.bookmarks.push({ position: pos, label: label, date: new Date().toLocaleDateString() });
-            
             saveReadingData();
             updateBookmarkIcon(idx === -1); 
         }
-
         function updateBookmarkIcon(isActive) {
             const icon = document.getElementById('bookmark-icon');
             icon.className = isActive ? "ph-fill ph-bookmark-simple" : "ph ph-bookmark-simple";
             icon.style.color = isActive ? "var(--accent)" : "var(--text-main)";
         }
-
         function renderBookmarkList() {
             const list = document.getElementById('bookmark-list-content');
             list.innerHTML = '';
@@ -150,240 +201,144 @@
             savedReadingData.bookmarks.forEach((bm, i) => {
                 const el = document.createElement('div');
                 el.className = 'menu-item justify-between group';
-                el.innerHTML = `
-                    <div class="flex flex-col"><span class="font-medium">${bm.label}</span><span class="text-[10px] opacity-60">${bm.date}</span></div>
-                    <i class="ph ph-trash text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 p-1"></i>
-                `;
+                el.innerHTML = `<div class="flex flex-col"><span class="font-medium">${bm.label}</span><span class="text-[10px] opacity-60">${bm.date}</span></div><i class="ph ph-trash text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 p-1"></i>`;
                 el.onclick = (e) => { 
                     if(e.target.classList.contains('ph-trash')) {
-                        e.stopPropagation();
-                        savedReadingData.bookmarks.splice(i, 1); 
-                        saveReadingData();
+                        e.stopPropagation(); savedReadingData.bookmarks.splice(i, 1); saveReadingData();
                         let currentPos = currentReaderType === 'epub' ? currentRendition.currentLocation().start.cfi : pdfPageNum;
                         if (bm.position === currentPos) updateBookmarkIcon(false);
-                    } else {
-                        jumpTo(bm.position);
-                    }
+                    } else { jumpTo(bm.position); }
                 };
                 list.appendChild(el);
             });
         }
-
         function jumpTo(pos) {
             if (currentReaderType === 'epub') currentRendition.display(pos);
             else { pdfPageNum = typeof pos === 'number' ? pos : 1; renderPdfSpread(); }
         }
-
-        // --- LIBRARY LOGIC ---
-        function saveLibrary() {
-            localStorage.setItem('zenith_library', JSON.stringify(library));
-            renderLibrary();
-        }
-
+        function saveLibrary() { localStorage.setItem('zenith_library', JSON.stringify(library)); renderLibrary(); }
         function addToLibrary(path, title, type, coverData) {
             if (library.some(b => b.path === path)) return;
-            const newBook = { id: Date.now(), path: path, title: title || "Untitled Book", type: type, cover: coverData || null, favorite: false };
-            library.push(newBook);
+            library.push({ id: Date.now(), path, title: title || "Untitled", type, cover: coverData || null, favorite: false });
             saveLibrary();
         }
-
         function deleteBook(id, fromDisk) {
             const book = library.find(b => b.id === id);
             if (!book) return;
-            if (confirm(fromDisk ? "Delete permanently from your computer?" : "Remove from Library?")) {
-                if (fromDisk) {
-                    window.electronAPI.deleteBookFile(book.path).then(res => { if (res.error) alert("Error deleting file: " + res.error); });
-                }
+            if (confirm(fromDisk ? "Delete permanently?" : "Remove from Library?")) {
+                if (fromDisk) window.electronAPI.deleteBookFile(book.path).then(res => { if (res.error) alert("Error: " + res.error); });
                 library = library.filter(b => b.id !== id);
                 saveLibrary();
             }
         }
-
         function toggleFavorite(id, event) {
             event.stopPropagation();
             const book = library.find(b => b.id === id);
             if (book) { book.favorite = !book.favorite; saveLibrary(); }
         }
-
         function renderLibrary() {
             const favContainer = document.getElementById('favorites-grid');
             const allContainer = document.getElementById('all-books-grid');
             const favSection = document.getElementById('favorites-section');
-            favContainer.innerHTML = '';
-            allContainer.innerHTML = '';
+            favContainer.innerHTML = ''; allContainer.innerHTML = '';
             const favorites = library.filter(b => b.favorite);
-            
-            if (favorites.length > 0) {
-                favSection.style.display = 'block';
-                favorites.forEach((book, idx) => favContainer.appendChild(createBookCard(book, idx)));
-            } else {
-                favSection.style.display = 'none';
-            }
+            if (favorites.length > 0) { favSection.style.display = 'block'; favorites.forEach((book, idx) => favContainer.appendChild(createBookCard(book, idx))); } 
+            else { favSection.style.display = 'none'; }
             library.forEach((book, idx) => allContainer.appendChild(createBookCard(book, idx)));
         }
-
         function createBookCard(book, index) {
             const card = document.createElement('div');
             card.className = 'book-card';
             const coverSrc = book.cover ? book.cover : 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTUwIiB2aWV3Qm94PSIwIDAgMTAwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiNkZGQiLz48dGV4dCB4PSI1MCIgeT0iNzUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0Ij5Cb29rPC90ZXh0Pjwvc3ZnPg==';
-            card.innerHTML = `
-                <img src="${coverSrc}" class="book-cover">
-                <div class="book-info">
-                    <div class="book-title" title="${book.title}">${book.title}</div>
-                    <div class="book-actions">
-                        <i class="ph-fill ${book.favorite ? 'ph-heart text-red-500' : 'ph-heart'} action-btn" onclick="toggleFavorite(${book.id}, event)" title="Favorite"></i>
-                        <div class="flex gap-1">
-                            <i class="ph ph-x action-btn" onclick="event.stopPropagation(); deleteBook(${book.id}, false)" title="Remove from Library"></i>
-                            <i class="ph ph-trash action-btn danger" onclick="event.stopPropagation(); deleteBook(${book.id}, true)" title="Delete from Disk"></i>
-                        </div>
-                    </div>
-                </div>
-            `;
+            card.innerHTML = `<img src="${coverSrc}" class="book-cover"><div class="book-info"><div class="book-title" title="${book.title}">${book.title}</div><div class="book-actions"><i class="ph-fill ${book.favorite ? 'ph-heart text-red-500' : 'ph-heart'} action-btn" onclick="toggleFavorite(${book.id}, event)" title="Favorite"></i><div class="flex gap-1"><i class="ph ph-x action-btn" onclick="event.stopPropagation(); deleteBook(${book.id}, false)" title="Remove"></i><i class="ph ph-trash action-btn danger" onclick="event.stopPropagation(); deleteBook(${book.id}, true)" title="Delete"></i></div></div></div>`;
             card.onclick = () => openBookFromLibrary(book);
             return card;
         }
-
-        // --- VIEWER LOGIC ---
         async function openBookFromLibrary(book) {
             const result = await window.electronAPI.readBookFile(book.path);
-            if (result.error) { alert("Could not load book. It may have been moved or deleted."); return; }
-            showReaderView();
-            loadReadingData(book.path); 
-            if (book.type === 'epub') loadEpub(result);
-            else loadPdf(result);
+            if (result.error) { alert("Book not found. It may have been moved."); return; }
+            showReaderView(); loadReadingData(book.path);
+            if (book.type === 'epub') loadEpub(result); else loadPdf(result);
         }
-
         async function importBook() {
             const result = await window.electronAPI.openBookDialog();
             if (result.canceled) return;
-
-            let coverData = null;
-            let title = result.filePath.split(/[\\/]/).pop(); 
-
+            let coverData = null, title = result.filePath.split(/[\\/]/).pop();
             if (result.fileExtension === 'epub') {
-                // FIX: Use ArrayBuffer to avoid file:/// errors
                 const bookData = base64ToArrayBuffer(result.fileData);
                 const book = ePub(bookData);
-                
                 await book.ready;
                 const meta = await book.loaded.metadata;
                 title = meta.title || title;
-
-                try {
-                    const coverUrl = await book.coverUrl();
-                    if (coverUrl) {
-                        const blob = await fetch(coverUrl).then(r => r.blob());
-                        coverData = await new Promise(r => { let a=new FileReader(); a.onload=()=>r(a.result); a.readAsDataURL(blob); });
-                    }
-                } catch(e) { console.warn("Cover extraction skipped", e); }
-                
+                try { const coverUrl = await book.coverUrl(); if (coverUrl) { const blob = await fetch(coverUrl).then(r => r.blob()); coverData = await new Promise(r => { let a=new FileReader(); a.onload=()=>r(a.result); a.readAsDataURL(blob); }); } } catch(e) {}
                 loadEpub(result);
-            } 
-            else if (result.fileExtension === 'pdf') {
+            } else if (result.fileExtension === 'pdf') {
                 const loadingTask = pdfjsLib.getDocument({ data: atob(result.fileData) });
                 const pdf = await loadingTask.promise;
                 const meta = await pdf.getMetadata();
                 if (meta.info.Title) title = meta.info.Title;
-                
                 const page = await pdf.getPage(1);
-                const viewport = page.getViewport({ scale: 0.5 }); 
+                const viewport = page.getViewport({ scale: 0.5 });
                 const canvas = document.createElement('canvas');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
+                canvas.height = viewport.height; canvas.width = viewport.width;
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
                 coverData = canvas.toDataURL();
-                
                 loadPdf(result);
             }
-
             addToLibrary(result.filePath, title, result.fileExtension, coverData);
-            showReaderView();
-            loadReadingData(result.filePath); 
+            showReaderView(); loadReadingData(result.filePath);
         }
-
-        // --- VIEW SWITCHING ---
         function showLibraryView() {
             document.getElementById('library-view').style.display = 'block';
             document.getElementById('viewer-container').style.display = 'none';
-            document.getElementById('home-btn').style.display = 'none'; 
-            document.getElementById('import-btn').style.display = 'flex'; 
+            document.getElementById('home-btn').style.display = 'none';
+            document.getElementById('import-btn').style.display = 'flex';
             document.getElementById('bookmark-btn').style.display = 'none';
             document.getElementById('list-btn').style.display = 'none';
             renderLibrary();
         }
-
         function showReaderView() {
             document.getElementById('library-view').style.display = 'none';
             document.getElementById('viewer-container').style.display = 'flex';
-            document.getElementById('home-btn').style.display = 'block'; 
-            document.getElementById('import-btn').style.display = 'none'; 
+            document.getElementById('home-btn').style.display = 'block';
+            document.getElementById('import-btn').style.display = 'none';
             document.getElementById('bookmark-btn').style.display = 'block';
             document.getElementById('list-btn').style.display = 'block';
         }
-
-        // --- LOADERS ---
         function loadEpub(data) {
             if (currentBook) currentBook.destroy();
-            
-            // FIX: Convert base64 to ArrayBuffer for ePub.js
             const bookData = base64ToArrayBuffer(data.fileData);
             currentBook = ePub(bookData);
-            
             document.getElementById('epub-viewer-area').style.display = 'block';
             document.getElementById('pdf-viewer-area').style.display = 'none';
             currentReaderType = 'epub';
-
             currentBook.loaded.metadata.then(meta => {
                 document.getElementById('book-title').textContent = meta.title || 'EPUB';
-                
                 currentRendition = currentBook.renderTo('epub-viewer-area', { width: "100%", height: "100%", flow: "paginated", spread: "always", minSpreadWidth: 1200, transition: 'slide' });
-                
-                const savedTheme = localStorage.getItem('appTheme') || 'light';
-                applyTheme(savedTheme);
+                applyTheme(localStorage.getItem('appTheme') || 'light');
                 currentRendition.display(savedReadingData.lastPosition || undefined);
-
-                currentRendition.on('locationChanged', (loc) => {
-                    savedReadingData.lastPosition = loc.start.cfi;
-                    saveReadingData();
-                    updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === loc.start.cfi));
-                });
-                
-                currentRendition.hooks.content.register((contents) => {
-                    contents.document.addEventListener('keydown', (e) => {
-                        if (e.key === "ArrowLeft") document.getElementById('prev-btn').click();
-                        if (e.key === "ArrowRight") document.getElementById('next-btn').click();
-                    });
-                });
+                currentRendition.on('locationChanged', (loc) => { savedReadingData.lastPosition = loc.start.cfi; saveReadingData(); updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === loc.start.cfi)); });
+                currentRendition.hooks.content.register((contents) => { contents.document.addEventListener('keydown', (e) => { if (e.key === "ArrowLeft") document.getElementById('prev-btn').click(); if (e.key === "ArrowRight") document.getElementById('next-btn').click(); }); });
                 currentBook.ready.then(() => currentBook.locations.generate(1000));
                 window.addEventListener('resize', () => currentRendition.resize());
             });
         }
-
         async function loadPdf(data) {
             currentReaderType = 'pdf';
             document.getElementById('epub-viewer-area').style.display = 'none';
             document.getElementById('pdf-viewer-area').style.display = 'flex';
-            
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             pdfDoc = await pdfjsLib.getDocument({ data: atob(data.fileData) }).promise;
-            
             const metadata = await pdfDoc.getMetadata();
-            let pdfTitle = (metadata.info && metadata.info.Title) ? metadata.info.Title : 'PDF Document';
-            document.getElementById('book-title').textContent = pdfTitle;
-
+            document.getElementById('book-title').textContent = (metadata.info && metadata.info.Title) ? metadata.info.Title : 'PDF Document';
             pdfPageNum = savedReadingData.lastPosition || 1;
             if(pdfPageNum % 2 === 0) pdfPageNum--; 
-            
             renderPdfSpread();
         }
-
         async function renderPdfSpread() {
             if (!pdfDoc) return;
             const area = document.getElementById('pdf-viewer-area');
-            area.style.opacity = '0';
-            await new Promise(resolve => setTimeout(resolve, 300));
-            area.innerHTML = ''; 
-            
+            area.style.opacity = '0'; await new Promise(resolve => setTimeout(resolve, 300)); area.innerHTML = ''; 
             const renderPage = async (num) => {
                 const page = await pdfDoc.getPage(num);
                 const viewport = page.getViewport({ scale: 1.2 });
@@ -392,16 +347,12 @@
                 area.appendChild(cvs);
                 await page.render({ canvasContext: cvs.getContext('2d'), viewport }).promise;
             };
-
             if(pdfPageNum <= pdfDoc.numPages) await renderPage(pdfPageNum);
             if(pdfPageNum + 1 <= pdfDoc.numPages) await renderPage(pdfPageNum + 1);
-
             area.style.opacity = '1';
             savedReadingData.lastPosition = pdfPageNum; saveReadingData();
             updateBookmarkIcon(savedReadingData.bookmarks.some(b => b.position === pdfPageNum));
         }
-
-        // --- THEMES ---
         const themes = {
             light: { bg: '#f8f9fa', color: '#2d3436' },
             sepia: { bg: '#f4ecd8', color: '#5b4636' },
@@ -412,30 +363,30 @@
             tech: { bg: '#0A192F', color: '#8892B0' },
             ocean_blue: { bg: '#E0F7FA', color: '#004D40' } 
         };
-
         function applyTheme(themeName) {
             document.body.className = themeName; 
             localStorage.setItem('appTheme', themeName);
             if (currentRendition && currentReaderType === 'epub') {
                 const t = themes[themeName.replace('-', '_')];
                 if(t) {
-                    currentRendition.themes.register(themeName, { body: { color: t.color, background: t.bg } });
+                    const rules = { body: { color: t.color, background: t.bg }, img: { "mix-blend-mode": "normal", "filter": "none !important" } };
+                    if (themeName === 'dark' || themeName === 'midnight') rules.img = { "filter": "brightness(0.8) !important" };
+                    currentRendition.themes.register(themeName, rules);
                     currentRendition.themes.select(themeName);
                 }
             }
-            document.getElementById('theme-menu').style.display = 'none';
+            const themeMenu = document.getElementById('theme-menu');
+            if (themeMenu) themeMenu.style.display = 'none';
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             applyTheme(localStorage.getItem('appTheme') || 'light');
             showLibraryView();
+            setupUpdateListeners(); // INITIALIZE UPDATE LISTENERS
+
             document.getElementById('import-btn').onclick = importBook;
-            document.getElementById('home-btn').onclick = () => {
-                showLibraryView();
-                if (currentBook) { currentBook.destroy(); currentBook = null; }
-                currentBookId = null;
-                document.getElementById('book-title').textContent = "Zenith Library";
-            };
+            document.getElementById('home-btn').onclick = () => { showLibraryView(); if (currentBook) { currentBook.destroy(); currentBook = null; } currentBookId = null; document.getElementById('book-title').textContent = "Zenith Library"; };
+            
             const fullscreenBtn = document.getElementById('fullscreen-btn');
             const fullscreenIcon = document.getElementById('fullscreen-icon');
             let isFullscreen = false;
@@ -446,14 +397,8 @@
                     fullscreenIcon.className = isFullscreen ? 'ph ph-corners-in text-xl' : 'ph ph-corners-out text-xl';
                 }
             };
-            document.getElementById('prev-btn').onclick = () => {
-                if(currentReaderType === 'epub' && currentRendition) currentRendition.prev();
-                else if(pdfPageNum > 1) { pdfPageNum -= 2; renderPdfSpread(); }
-            };
-            document.getElementById('next-btn').onclick = () => {
-                if(currentReaderType === 'epub' && currentRendition) currentRendition.next();
-                else if(pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum += 2; renderPdfSpread(); }
-            };
+            document.getElementById('prev-btn').onclick = () => { if(currentReaderType === 'epub' && currentRendition) currentRendition.prev(); else if(pdfPageNum > 1) { pdfPageNum -= 2; renderPdfSpread(); } };
+            document.getElementById('next-btn').onclick = () => { if(currentReaderType === 'epub' && currentRendition) currentRendition.next(); else if(pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum += 2; renderPdfSpread(); } };
             document.addEventListener('keydown', (e) => {
                 if (document.getElementById('library-view').style.display !== 'none') return; 
                 if (e.key === "ArrowLeft") document.getElementById('prev-btn').click();
@@ -462,54 +407,10 @@
             });
             const themeMenu = document.getElementById('theme-menu');
             const bookmarkMenu = document.getElementById('bookmark-menu');
-            document.getElementById('theme-btn').onclick = (e) => { 
-                e.stopPropagation(); 
-                themeMenu.style.display = themeMenu.style.display === 'block' ? 'none' : 'block';
-                bookmarkMenu.style.display = 'none';
-            };
-            document.getElementById('list-btn').onclick = (e) => {
-                e.stopPropagation();
-                bookmarkMenu.style.display = bookmarkMenu.style.display === 'block' ? 'none' : 'block';
-                themeMenu.style.display = 'none';
-            };
+            document.getElementById('theme-btn').onclick = (e) => { e.stopPropagation(); themeMenu.style.display = themeMenu.style.display === 'block' ? 'none' : 'block'; bookmarkMenu.style.display = 'none'; };
+            document.getElementById('list-btn').onclick = (e) => { e.stopPropagation(); bookmarkMenu.style.display = bookmarkMenu.style.display === 'block' ? 'none' : 'block'; themeMenu.style.display = 'none'; };
             document.getElementById('bookmark-btn').onclick = toggleBookmark;
-            document.onclick = () => {
-                themeMenu.style.display = 'none';
-                bookmarkMenu.style.display = 'none';
-            };
-            // Auto Updater UI
-            const progressContainer = document.getElementById('download-progress-status');
-            const progressBar = document.getElementById('download-bar');
-            const progressMessage = document.getElementById('download-message');
-            const progressDetails = document.getElementById('download-details');
-            if (window.electronAPI && window.electronAPI.ipcRenderer) {
-                window.electronAPI.ipcRenderer.on('update-status', (event, data) => {
-                    if (data.status === 'downloading') {
-                        progressContainer.style.display = 'flex';
-                        progressMessage.textContent = 'Downloading Update...';
-                        progressBar.style.width = '0%';
-                        progressDetails.textContent = '0%';
-                    } else if (data.status === 'downloaded') {
-                        progressMessage.textContent = 'Download Complete! Preparing to install...';
-                        progressBar.style.width = '100%';
-                        progressDetails.textContent = '100% - Restarting soon.';
-                        setTimeout(() => progressContainer.style.display = 'none', 3000); 
-                    } else if (data.status === 'error') {
-                        progressMessage.textContent = `Update Error!`;
-                        progressContainer.style.display = 'flex';
-                        progressBar.style.width = '0%';
-                        progressDetails.textContent = `Download failed: ${data.message}. Please restart the app.`;
-                    }
-                });
-                window.electronAPI.ipcRenderer.on('download-progress', (event, progressObj) => {
-                    const percent = Math.floor(progressObj.percent);
-                    const bytesPerSecond = (progressObj.bytesPerSecond / (1024 * 1024)).toFixed(2);
-                    const transferred = (progressObj.transferred / (1024 * 1024)).toFixed(2);
-                    const total = (progressObj.total / (1024 * 1024)).toFixed(2);
-                    progressBar.style.width = `${percent}%`;
-                    progressDetails.textContent = `${percent}% (${transferred} MB of ${total} MB) @ ${bytesPerSecond} MB/s`;
-                });
-            }
+            document.onclick = () => { themeMenu.style.display = 'none'; bookmarkMenu.style.display = 'none'; };
         });
     </script>
 </head>
@@ -517,12 +418,8 @@
     <div id="app" class="flex flex-col h-screen">
         <header class="glass-panel h-16 px-6 flex justify-between items-center z-30 relative shadow-sm">
             <div class="flex items-center space-x-4">
-                <button id="home-btn" class="btn-icon" title="Library" style="display: none;">
-                    <i class="ph-bold ph-house text-xl"></i>
-                </button>
-                <button id="import-btn" class="btn-primary flex items-center gap-2" style="display: flex;">
-                    <i class="ph-bold ph-plus"></i> Add Book
-                </button>
+                <button id="home-btn" class="btn-icon" title="Library" style="display: none;"><i class="ph-bold ph-house text-xl"></i></button>
+                <button id="import-btn" class="btn-primary flex items-center gap-2" style="display: flex;"><i class="ph-bold ph-plus"></i> Add Book</button>
                 <h1 id="book-title" class="text-lg font-semibold opacity-80 truncate max-w-md select-none">Zenith Library</h1>
             </div>
             <div class="flex items-center space-x-2">
@@ -532,11 +429,23 @@
                 <div id="theme-btn" class="btn-icon" title="Themes"><i class="ph ph-palette text-xl"></i></div>
             </div>
 
-            <!-- Download Progress Overlay -->
-            <div id="download-progress-status" class="absolute w-full h-full top-0 left-0 bg-gray-900/90 text-white flex flex-col items-center justify-center p-4 z-40 transition-opacity duration-500" style="display: none;">
-                <span id="download-message" class="text-xl font-semibold mb-3">Downloading...</span>
-                <div class="w-1/3 bg-gray-700 rounded-full h-3 mb-2"><div id="download-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div></div>
-                <span id="download-details" class="text-sm opacity-70">0% (0 MB of 0 MB) @ 0.00 MB/s</span>
+            <!-- UPDATE PROMPT MODAL -->
+            <div id="update-modal" class="modal-overlay">
+                <div class="modal-card">
+                    <h2 id="update-title" class="text-xl font-bold mb-2">Update Available</h2>
+                    <p id="update-desc" class="text-sm opacity-80 mb-4">A new version is ready.</p>
+                    <p id="update-size" class="text-xs font-mono opacity-60 mb-4"></p>
+                    
+                    <div id="update-progress-bar" class="progress-track">
+                        <div id="update-progress-fill" class="progress-fill"></div>
+                    </div>
+                    <p id="update-progress-text" class="text-xs text-center mb-4"></p>
+
+                    <div id="update-btns" class="flex justify-center gap-4">
+                        <button id="btn-cancel" class="px-4 py-2 rounded-lg border border-border hover:bg-gray-100 text-sm">Cancel</button>
+                        <button id="btn-download" class="btn-primary text-sm">Download</button>
+                    </div>
+                </div>
             </div>
 
             <div id="theme-menu" class="dropdown-menu">
