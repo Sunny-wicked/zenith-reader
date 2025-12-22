@@ -6,11 +6,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteBookFile: (path) => ipcRenderer.invoke('delete-book-file', path),
     toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
     
-    // --- NEW UPDATER API ---
+    // --- UPDATER API ---
     startDownload: () => ipcRenderer.invoke('start-download'),
     quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
     
-    // General Listener
+    // General Listener for events from Main to UI
     ipcRenderer: {
         on: (channel, callback) => ipcRenderer.on(channel, callback),
         removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
