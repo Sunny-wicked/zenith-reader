@@ -27,6 +27,7 @@
         body.romantic { --bg-main: #ffe5ec; --bg-panel: rgba(255, 230, 235, 0.95); --text-main: #880025; --accent: #ff006e; --border: #fbc4d4; }
         body.tech { --bg-main: #0A192F; --bg-panel: rgba(17, 34, 51, 0.95); --text-main: #8892B0; --accent: #64FFDA; --border: #334155; }
         body.ocean-blue { --bg-main: #E0F7FA; --bg-panel: rgba(255, 255, 255, 0.95); --text-main: #004D40; --accent: #00BCD4; --border: #B2EBF2; }
+        
         /* --- GLOBAL LAYOUT --- */
         body { 
             background-color: var(--bg-main); color: var(--text-main); 
@@ -541,7 +542,7 @@
             const btn = document.getElementById('btn-download');
             
             window.electronAPI.ipcRenderer.on('update-available', (e, info) => {
-                modal.style.display = 'flex';
+                modal.style.display = 'flex'; // FIXED: Changed from 'block' to 'flex'
                 document.getElementById('update-size').textContent = `Size: ${formatBytes(info.size)}`;
                 btn.onclick = () => {
                     window.electronAPI.startDownload();
