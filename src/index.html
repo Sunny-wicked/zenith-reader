@@ -25,20 +25,6 @@
         body.romantic { --bg-main: #ffe5ec; --bg-panel: rgba(255, 230, 235, 0.95); --text-main: #880025; --accent: #ff006e; --border: #fbc4d4; }
         body.tech { --bg-main: #0A192F; --bg-panel: rgba(17, 34, 51, 0.95); --text-main: #8892B0; --accent: #64FFDA; --border: #334155; }
         body.ocean-blue { --bg-main: #E0F7FA; --bg-panel: rgba(255, 255, 255, 0.95); --text-main: #004D40; --accent: #00BCD4; --border: #B2EBF2; }
-
-        /* --- CHRISTMAS SPECIAL THEME (START) --- */
-        body.christmas { 
-            --bg-main: #0f3025; /* Deep Fir Green */
-            --bg-panel: rgba(20, 50, 40, 0.95); 
-            --text-main: #e2e8f0; /* Frost White */
-            --accent: #d63031; /* Santa Red */
-            --border: #1e5140; 
-        }
-        /* Add a festive border to the header only in Christmas mode */
-        body.christmas .glass-panel {
-            border-bottom: 2px solid var(--accent);
-        }
-        /* --- CHRISTMAS SPECIAL THEME (END) --- */
         
         /* --- GLOBAL LAYOUT --- */
         body { 
@@ -64,6 +50,7 @@
         /* --- BUTTONS & UTILS --- */
         .flex { display: flex; align-items: center; }
         .gap-2 { gap: 0.5rem; }
+        .gap-4 { gap: 1rem; }
         .hidden { display: none !important; }
         
         .btn-icon {
@@ -189,10 +176,6 @@
         </div>
 
         <div id="theme-menu" class="dropdown-menu">
-            <div class="menu-item" onclick="applyTheme('christmas')" style="border-bottom: 1px solid var(--border); margin-bottom: 8px; padding-bottom: 8px;">
-                <div class="theme-circle" style="background:#0f3025; border: 1px solid #d63031;"></div> 
-                <strong>Christmas</strong> 🎄
-            </div>
             <div class="menu-item" onclick="applyTheme('light')"><div class="theme-circle" style="background:#f8f9fa"></div> Light</div>
             <div class="menu-item" onclick="applyTheme('sepia')"><div class="theme-circle" style="background:#f4ecd8"></div> Sepia</div>
             <div class="menu-item" onclick="applyTheme('dark')"><div class="theme-circle" style="background:#1e1e1e"></div> Night</div>
@@ -418,9 +401,6 @@
             romantic: { bg: '#ffe5ec', color: '#880025' },
             tech: { bg: '#0A192F', color: '#8892B0' },
             ocean_blue: { bg: '#E0F7FA', color: '#004D40' },
-            /* --- CHRISTMAS SPECIAL (START) --- */
-            christmas: { bg: '#0f3025', color: '#e2e8f0' }
-            /* --- CHRISTMAS SPECIAL (END) --- */
         };
 
         function loadEpub(data) {
