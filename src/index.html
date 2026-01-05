@@ -39,12 +39,41 @@
             height: 4rem; background: var(--bg-panel); backdrop-filter: blur(12px); 
             border-bottom: 1px solid var(--border); padding: 0 1.5rem;
             display: flex; align-items: center; justify-content: space-between; 
-            position: relative; z-index: 50;
+            position: relative; z-index: 50; transition: transform 0.3s ease;
         }
         .glass-footer { 
             height: 2rem; background: var(--bg-panel); border-top: 1px solid var(--border); 
             display: flex; align-items: center; justify-content: center; 
-            font-size: 0.75rem; opacity: 0.6; 
+            font-size: 0.75rem; opacity: 0.6; transition: transform 0.3s ease;
+        }
+
+        /* --- IMMERSIVE MODE (FULLSCREEN LOGIC) --- */
+        /* When fullscreen is active, hide header/footer and expand viewer */
+        body.immersive .glass-panel { transform: translateY(-100%); position: absolute; width: 100%; }
+        body.immersive .glass-footer { transform: translateY(100%); position: absolute; bottom: 0; width: 100%; }
+        
+        body.immersive #viewer-container { 
+            height: 100vh !important; /* Take full height */
+            top: 0; 
+            z-index: 10;
+        }
+
+        /* Floating Exit Button (Only visible in Immersive Mode) */
+        #floating-exit-btn {
+            position: fixed; top: 1rem; right: 1rem; z-index: 100;
+            background: var(--bg-panel); border: 1px solid var(--border);
+            width: 40px; height: 40px; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            box-shadow: var(--shadow); cursor: pointer; opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        #floating-exit-btn:hover { opacity: 1; color: var(--accent); }
+        body.immersive #floating-exit-btn { display: flex; }
+
+        /* PDF Sizing in Fullscreen */
+        body.immersive canvas.pdf-page-canvas {
+            max-height: 96vh !important; /* Grow PDF to fill screen */
+            max-width: 48% !important;
         }
 
         /* --- BUTTONS & UTILS --- */
@@ -68,7 +97,9 @@
         .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
         /* --- LIBRARY GRID --- */
-        #library-view { height: calc(100vh - 6rem); overflow-y: auto; padding: 2rem; }
+        #library-view { height: calc(100vh - 6rem); overflow-y: auto; padding: 2rem; transition: height 0.3s; }
+        body.immersive #library-view { height: 100vh; }
+
         .book-grid { 
             display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
             gap: 2rem; max-width: 1600px; margin: 0 auto; 
@@ -86,7 +117,7 @@
         .book-card:hover .book-actions { opacity: 1; }
 
         /* --- READER AREA --- */
-        #viewer-container { width: 100%; height: calc(100vh - 6rem); display: none; position: relative; }
+        #viewer-container { width: 100%; height: calc(100vh - 6rem); display: none; position: relative; transition: height 0.3s; }
         #epub-viewer-area { width: 100%; height: 100%; }
         #pdf-viewer-area { 
             width: 100%; height: 100%; display: none; 
@@ -94,10 +125,10 @@
         }
         canvas.pdf-page-canvas { 
             box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
-            max-height: 90vh; max-width: 45%; object-fit: contain; background: white; 
+            max-height: 85vh; max-width: 45%; object-fit: contain; background: white; 
+            transition: max-height 0.3s ease;
         }
         
-        /* PDF Single Page Centering Fix */
         #pdf-viewer-area:after, #pdf-viewer-area:before { content: ""; flex: 1; }
 
         .nav-arrow { 
@@ -142,6 +173,10 @@
     </style>
 </head>
 <body class="light">
+
+    <button id="floating-exit-btn" title="Exit Fullscreen">
+        <svg width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+    </button>
 
     <header class="glass-panel">
         <div class="flex gap-2">
@@ -535,9 +570,33 @@
             else { pdfPageNum = pos; renderPdfSpread(); }
         }
 
-        // --- THEMES & FULLSCREEN ---
+        // --- TOGGLE FULLSCREEN & IMMERSIVE MODE ---
+        function toggleFullscreen() {
+            window.electronAPI.toggleFullscreen();
+            document.body.classList.toggle('immersive');
+            // Resize EPUB logic
+            if (currentReaderType === 'epub' && currentRendition) {
+                setTimeout(() => currentRendition.resize(), 300);
+            }
+        }
+
+        // --- THEMES ---
         function applyTheme(themeName) {
             document.body.className = themeName;
+            
+            // If already in immersive mode, make sure we keep that class
+            // (Note: setting className overwrites everything, so we re-add if needed)
+            // Ideally, handle classes separately, but for simplicity:
+            // We just let the user toggle immersive again or check state. 
+            // Better: use classList.add/remove for themes.
+            
+            // Reset classes to just theme, then check immersive
+            // A safer way: remove old theme classes, add new one.
+            // For now, simple override is okay, but user might lose immersive state visually.
+            // Let's fix that small UX edge case:
+            const isImmersive = document.body.classList.contains('immersive');
+            document.body.className = themeName + (isImmersive ? ' immersive' : '');
+
             localStorage.setItem('appTheme', themeName);
             if (currentRendition && currentReaderType === 'epub') {
                 const t = themes[themeName.replace('-', '_')];
@@ -555,7 +614,7 @@
             const btn = document.getElementById('btn-download');
             
             window.electronAPI.ipcRenderer.on('update-available', (e, info) => {
-                modal.style.display = 'flex'; // FIXED: Use flex to center, not block
+                modal.style.display = 'flex'; 
                 document.getElementById('update-size').textContent = `Size: ${formatBytes(info.size)}`;
                 btn.onclick = () => {
                     window.electronAPI.startDownload();
@@ -586,7 +645,10 @@
             document.getElementById('import-btn').onclick = importBook;
             document.getElementById('home-btn').onclick = showLibraryView;
             document.getElementById('bookmark-add-btn').onclick = addBookmark;
-            document.getElementById('fullscreen-btn').onclick = () => window.electronAPI.toggleFullscreen();
+            
+            // FULLSCREEN TOGGLE
+            document.getElementById('fullscreen-btn').onclick = toggleFullscreen;
+            document.getElementById('floating-exit-btn').onclick = toggleFullscreen;
             
             // Nav Buttons
             document.getElementById('prev-btn').onclick = handlePrev;
@@ -605,7 +667,10 @@
 
             // Keyboard
             window.addEventListener('keydown', (e) => {
-                if(e.key === "F11") { e.preventDefault(); window.electronAPI.toggleFullscreen(); }
+                if(e.key === "F11") { 
+                    e.preventDefault(); 
+                    toggleFullscreen(); 
+                }
                 if(document.getElementById('viewer-container').style.display === 'flex') {
                     if(e.key === "ArrowLeft") handlePrev();
                     if(e.key === "ArrowRight") handleNext();
