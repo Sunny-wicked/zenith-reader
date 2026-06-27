@@ -25,6 +25,9 @@
         body.romantic { --bg-main: #ffe5ec; --bg-panel: rgba(255, 230, 235, 0.95); --text-main: #880025; --accent: #ff006e; --border: #fbc4d4; }
         body.tech { --bg-main: #0A192F; --bg-panel: rgba(17, 34, 51, 0.95); --text-main: #8892B0; --accent: #64FFDA; --border: #334155; }
         body.ocean-blue { --bg-main: #E0F7FA; --bg-panel: rgba(255, 255, 255, 0.95); --text-main: #004D40; --accent: #00BCD4; --border: #B2EBF2; }
+        body.bittersweet { --bg-main: #fff0ed; --bg-panel: rgba(255, 240, 237, 0.95); --text-main: #4a201b; --accent: #FE6F5E; --border: #ffd1cb; }
+        body.deep-fuchsia { --bg-main: #1a0b1a; --bg-panel: rgba(30, 15, 30, 0.95); --text-main: #f8e8f8; --accent: #C154C1; --border: #602a60; }
+        body.sunset-bloom { --bg-main: #2b182b; --bg-panel: rgba(20, 10, 20, 0.95); --text-main: #fcefee; --accent: #DF618F; --border: #8a4369; }
         
         /* --- GLOBAL LAYOUT --- */
         body { 
@@ -209,6 +212,9 @@
             <div class="menu-item" onclick="applyTheme('romantic')"><div class="theme-circle" style="background:#ffe5ec; border:1px solid #ff006e"></div> Romantic</div>
             <div class="menu-item" onclick="applyTheme('tech')"><div class="theme-circle" style="background:#0A192F; border:1px solid #64FFDA"></div> Tech</div>
             <div class="menu-item" onclick="applyTheme('ocean-blue')"><div class="theme-circle" style="background:#E0F7FA; border:1px solid #00BCD4"></div> Ocean Blue</div>
+            <div class="menu-item" onclick="applyTheme('bittersweet')"><div class="theme-circle" style="background:#fff0ed; border:1px solid #FE6F5E"></div> Bittersweet</div>
+            <div class="menu-item" onclick="applyTheme('deep-fuchsia')"><div class="theme-circle" style="background:#1a0b1a; border:1px solid #C154C1"></div> Deep Fuchsia</div>
+            <div class="menu-item" onclick="applyTheme('sunset-bloom')"><div class="theme-circle" style="background:linear-gradient(135deg, #FE6F5E, #C154C1); border:none"></div> Sunset Bloom</div>
         </div>
 
         <div id="bookmark-menu" class="dropdown-menu">
@@ -427,6 +433,9 @@
             romantic: { bg: '#ffe5ec', color: '#880025' },
             tech: { bg: '#0A192F', color: '#8892B0' },
             ocean_blue: { bg: '#E0F7FA', color: '#004D40' },
+            bittersweet: { bg: '#fff0ed', color: '#4a201b' },
+            deep_fuchsia: { bg: '#1a0b1a', color: '#f8e8f8' },
+            sunset_bloom: { bg: '#2b182b', color: '#fcefee' }
         };
 
         function loadEpub(data) {
